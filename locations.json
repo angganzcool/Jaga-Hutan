@@ -1,0 +1,32 @@
+[
+  {
+    "id": "loc_palangkaraya",
+    "name": "Area Hutan & Gambut Palangka Raya (Kalteng)",
+    "latitude": -2.2161,
+    "longitude": 113.9139,
+    "radius_km": 35.0,
+    "min_confidence": "nominal",
+    "alert_telegram": true,
+    "alert_whatsapp": true
+  },
+  {
+    "id": "loc_tesso_nilo",
+    "name": "Taman Nasional Tesso Nilo (Riau)",
+    "latitude": -0.1550,
+    "longitude": 101.6000,
+    "radius_km": 25.0,
+    "min_confidence": "nominal",
+    "alert_telegram": true,
+    "alert_whatsapp": true
+  },
+  {
+    "id": "loc_sebangau",
+    "name": "Taman Nasional Sebangau (Kalteng)",
+    "latitude": -2.6000,
+    "longitude": 113.8000,
+    "radius_km": 40.0,
+    "min_confidence": "low",
+    "alert_telegram": true,
+    "alert_whatsapp": true
+  }
+]
