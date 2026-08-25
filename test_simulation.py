@@ -1,9 +1,11 @@
 import unittest
+from fastapi.testclient import TestClient
 from geo_utils import haversine_distance, is_within_radius, normalize_confidence, is_confidence_acceptable, generate_maps_links
 from database import Database
 from firms_service import FirmsService
 from notifier import Notifier
 from config import AppConfig, MonitoredLocation
+from app import app as web_app
 
 class TestJagaHutan(unittest.TestCase):
     def setUp(self):
@@ -130,6 +132,13 @@ class TestJagaHutan(unittest.TestCase):
 
         wa_msg = self.notifier.format_whatsapp_message(sample_spot, "Area Uji", 8.5, 30.0)
         self.assertIn("*PERINGATAN DINI HOTSPOT", wa_msg)
+
+    def test_dashboard_and_health_endpoints(self):
+        client = TestClient(web_app)
+        dashboard = client.get("/")
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertIn("Jaga Hutan", dashboard.text)
+        self.assertEqual(client.get("/health/live").json(), {"status": "ok"})
 
 if __name__ == "__main__":
     unittest.main()

@@ -40,7 +40,11 @@ logger = logging.getLogger("jaga_hutan.api")
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={},
+    )
 
 @app.get("/api/locations")
 async def get_locations():
