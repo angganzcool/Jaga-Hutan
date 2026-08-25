@@ -1,0 +1,30 @@
+name: 🐛 Laporkan Masalah / Bug Report
+description: Laporkan adanya kendala teknis atau bug pada sistem Jaga Hutan
+title: "[BUG]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Terima kasih telah melaporkan kendala. Pastikan Anda telah memeriksa apakah masalah ini sudah dilaporkan sebelumnya di menu Issues.
+  - type: input
+    id: version
+    attributes:
+      label: Versi Python / OS
+      description: Sebutkan versi Python (misal Python 3.11 di Ubuntu 22.04 / Windows 11)
+      placeholder: e.g. Python 3.11.5 on Ubuntu 22.04 LTS
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Deskripsi Masalah / Bug Description
+      description: Jelaskan kendala yang Anda alami secara runtut
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log Terminal / Error Traceback
+      description: Tempelkan cuplikan pesan error dari terminal jika ada
+      render: shell

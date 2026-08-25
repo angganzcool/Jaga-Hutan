@@ -12,6 +12,7 @@
 [![Telegram Bot](https://img.shields.io/badge/Telegram-Bot%20API-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
 [![WhatsApp](https://img.shields.io/badge/WhatsApp-Alert%20Gateway-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/WhiskeySockets/Baileys)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![CI Tests](https://img.shields.io/github/actions/workflow/status/angganzcool/Jaga-Hutan/ci.yml?branch=main&style=for-the-badge&label=CI%20BUILD&logo=githubactions&logoColor=white)](https://github.com/angganzcool/Jaga-Hutan/actions)
 
 <br/>
 
@@ -166,6 +167,12 @@ Tentukan wilayah pantauan di [`locations.json`](file:///d:/Jaga%20Hutan/location
   python app.py
   ```
   Buka browser di `http://localhost:8000`.
+
+#### 🐳 Menjalankan dengan Docker Compose (1 Perintah)
+```bash
+docker compose up -d
+```
+Dashboard akan otomatis aktif di `http://localhost:8000` dan background worker akan memantau titik api secara terus-menerus.
 
 ---
 

@@ -1,0 +1,19 @@
+name: 💡 Usulan Fitur Baru / Feature Request
+description: Usulkan ide atau fitur baru untuk pengembangan Jaga Hutan
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Latar Belakang / Problem Context
+      description: Masalah apa yang ingin Anda selesaikan dengan fitur ini?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Usulan Solusi / Proposed Solution
+      description: Bagaimana fitur baru ini bekerja menurut pandangan Anda?
+    validations:
+      required: true

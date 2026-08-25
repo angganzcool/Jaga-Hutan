@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # 1. Web GIS Dashboard & REST API
+  web:
+    build: .
+    container_name: jaga-hutan-web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./jaga_hutan.db:/app/jaga_hutan.db
+      - ./locations.json:/app/locations.json
+    command: python app.py
+
+  # 2. Background Hotspot Monitoring Worker
+  worker:
+    build: .
+    container_name: jaga-hutan-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./jaga_hutan.db:/app/jaga_hutan.db
+      - ./locations.json:/app/locations.json
+    command: python main.py --daemon

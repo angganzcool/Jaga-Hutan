@@ -63,6 +63,60 @@ async def get_hotspots(days: int = Query(7, ge=1, le=30), location_id: Optional[
 async def get_stats():
     return db.get_stats()
 
+@app.get("/api/export/geojson")
+async def export_geojson(days: int = Query(7, ge=1, le=30), location_id: Optional[str] = None):
+    """
+    Ekspor data hotspot ke format standar GeoJSON (FeatureCollection) untuk QGIS / ArcGIS / Leaflet.
+    """
+    hotspots = db.get_recent_hotspots(days=days, location_id=location_id)
+    features = []
+    for spot in hotspots:
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [spot["longitude"], spot["latitude"]]
+            },
+            "properties": {
+                "hotspot_uid": spot["hotspot_uid"],
+                "brightness": spot["brightness"],
+                "scan_date": spot["scan_date"],
+                "scan_time": spot["scan_time"],
+                "satellite": spot["satellite"],
+                "instrument": spot["instrument"],
+                "confidence": spot["confidence_label"],
+                "frp_mw": spot["frp"],
+                "location_name": spot["location_name"],
+                "distance_km": spot["distance_km"]
+            }
+        })
+    return {
+        "type": "FeatureCollection",
+        "features": features
+    }
+
+@app.get("/api/export/csv")
+async def export_csv(days: int = Query(7, ge=1, le=30), location_id: Optional[str] = None):
+    """
+    Ekspor data hotspot ke format CSV.
+    """
+    import io
+    import csv
+    from fastapi.responses import Response
+
+    hotspots = db.get_recent_hotspots(days=days, location_id=location_id)
+    output = io.StringIO()
+    if hotspots:
+        writer = csv.DictWriter(output, fieldnames=list(hotspots[0].keys()))
+        writer.writeheader()
+        writer.writerows(hotspots)
+    
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=jaga_hutan_hotspots_{days}d.csv"}
+    )
+
 @app.post("/api/trigger-check")
 async def trigger_check(simulate: bool = False):
     try:
@@ -75,3 +129,4 @@ if __name__ == "__main__":
     import uvicorn
     print(f"🌲 Menjalankan Web Dashboard Jaga Hutan di http://localhost:{cfg.web_port}")
     uvicorn.run(app, host=cfg.web_host, port=cfg.web_port)
+
