@@ -243,6 +243,9 @@ Proyek **Jaga Hutan** dikembangkan secara independen dan bersifat *open-source* 
 
 Dukungan dari Anda sangat berarti untuk membiayai server riset, infrastruktur peta publik, dan edukasi pencegahan karhutla ke masyarakat lapangan.
 
+Penggunaan dukungan, target pendanaan, dan laporan bulanan tersedia secara terbuka
+di **[TRANSPARENCY.md](TRANSPARENCY.md)**.
+
 <div align="center">
 
 ### 💚 Pilihan Jalur Donasi:
