@@ -16,8 +16,8 @@
 <br/>
 
 [![Donate via PayPal](https://img.shields.io/badge/Support%20Project-PayPal%20Subscribe-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-63C1163027265553ANKGZKEI)
-[![GitHub Stars](https://img.shields.io/github/stars/yourusername/Jaga-Hutan?style=for-the-badge&color=gold)](https://github.com)
-[![GitHub Forks](https://img.shields.io/github/forks/yourusername/Jaga-Hutan?style=for-the-badge&color=blue)](https://github.com)
+[![GitHub Stars](https://img.shields.io/github/stars/angganzcool/Jaga-Hutan?style=for-the-badge&color=gold)](https://github.com)
+[![GitHub Forks](https://img.shields.io/github/forks/angganzcool/Jaga-Hutan?style=for-the-badge&color=blue)](https://github.com)
 
 <br/>
 
@@ -94,7 +94,7 @@ flowchart TD
 
 #### 1. Klon Repositori & Pasang Dependensi
 ```bash
-git clone https://github.com/yourusername/Jaga-Hutan.git
+git clone https://github.com/angganzcool/Jaga-Hutan.git
 cd Jaga-Hutan
 pip install -r requirements.txt
 ```
