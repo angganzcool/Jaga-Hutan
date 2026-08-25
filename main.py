@@ -1,6 +1,8 @@
 import argparse
 import time
 import sys
+import os
+import logging
 from datetime import datetime, timezone
 
 # Ensure UTF-8 output on Windows consoles
@@ -15,7 +17,13 @@ from geo_utils import is_within_radius, is_confidence_acceptable
 from database import Database
 from notifier import Notifier
 
-def run_monitoring_cycle(cfg, db, firms, notifier, force_simulation: bool = False):
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("jaga_hutan.monitor")
+
+def _run_monitoring_cycle(cfg, db, firms, notifier, force_simulation: bool = False):
     print(f"\n==================================================")
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Memulai Siklus Monitoring Jaga Hutan...")
     print(f"==================================================")
@@ -28,9 +36,9 @@ def run_monitoring_cycle(cfg, db, firms, notifier, force_simulation: bool = Fals
     print(f"📍 Memantau {len(locations)} lokasi sasaran.")
 
     # 1. Ambil data dari NASA FIRMS (atau Simulasi)
-    if force_simulation:
+    if force_simulation or cfg.simulation_enabled:
         raw_hotspots = firms.generate_mock_hotspots()
-        print(f"[SIMULASI] Mengambil {len(raw_hotspots)} titik api simulasi.")
+        logger.warning("MODE SIMULASI aktif; memuat %s titik simulasi", len(raw_hotspots))
     else:
         raw_hotspots = firms.fetch_country_hotspots()
         print(f"🛰️ Mengambil {len(raw_hotspots)} titik api dari satelit NASA FIRMS.")
@@ -102,6 +110,15 @@ def run_monitoring_cycle(cfg, db, firms, notifier, force_simulation: bool = Fals
                     print(f"   [WHATSAPP] ℹ️ Cooldown aktif: Alert sudah pernah dikirim.")
 
     print(f"🏁 Siklus selesai: {total_matches} titik masuk radius, {total_alerts_dispatched} notifikasi dikirim.")
+
+def run_monitoring_cycle(cfg, db, firms, notifier, force_simulation: bool = False):
+    """Jalankan satu siklus dengan lock lintas proses web/worker."""
+    if not db.acquire_monitoring_lock():
+        raise RuntimeError("Siklus monitoring lain sedang berjalan")
+    try:
+        return _run_monitoring_cycle(cfg, db, firms, notifier, force_simulation)
+    finally:
+        db.release_monitoring_lock()
 
 def send_test_alert(cfg, notifier):
     print("\n[TEST] Mengirim pesan pengujian notifikasi...")

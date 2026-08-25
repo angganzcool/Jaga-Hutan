@@ -23,8 +23,10 @@ class FirmsService:
         Endpoint: https://firms.modaps.eosdis.nasa.gov/api/country/csv/{MAP_KEY}/{SOURCE}/{COUNTRY}/{DAY_RANGE}
         """
         if not self.is_configured():
-            print("[WARN] FIRMS_MAP_KEY belum diisi. Mengembalikan data simulasi...")
-            return self.generate_mock_hotspots()
+            raise RuntimeError(
+                "FIRMS_MAP_KEY belum dikonfigurasi. Gunakan --simulate atau "
+                "SIMULATION_MODE=true hanya untuk data simulasi."
+            )
 
         url = f"{self.BASE_URL}/country/csv/{self.map_key}/{self.source}/{self.country}/{self.day_range}"
         print(f"[FIRMS API] Requesting data dari: {url.replace(self.map_key, '***MAP_KEY***')}")
@@ -49,7 +51,9 @@ class FirmsService:
         Endpoint: https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/{SOURCE}/{W,S,E,N}/{DAY_RANGE}
         """
         if not self.is_configured():
-            return self.generate_mock_hotspots()
+            raise RuntimeError(
+                "FIRMS_MAP_KEY belum dikonfigurasi. Mode simulasi harus diaktifkan secara eksplisit."
+            )
 
         bbox = f"{min_lon:.4f},{min_lat:.4f},{max_lon:.4f},{max_lat:.4f}"
         url = f"{self.BASE_URL}/area/csv/{self.map_key}/{self.source}/{bbox}/{self.day_range}"

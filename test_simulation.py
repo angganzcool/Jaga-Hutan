@@ -88,6 +88,29 @@ class TestJagaHutan(unittest.TestCase):
         was_alerted_now = self.db.was_alerted_recently("test_spot_100", "loc_test", "telegram", 12)
         self.assertTrue(was_alerted_now)
 
+    def test_same_hotspot_can_belong_to_multiple_locations(self):
+        sample_spot = {
+            "hotspot_uid": "shared_spot_1", "latitude": -2.25, "longitude": 113.85,
+            "scan_date": "2026-08-25", "scan_time": "0600",
+            "location_id": "loc_a", "location_name": "Area A", "distance_km": 5.0,
+        }
+        self.assertTrue(self.db.save_hotspot(sample_spot))
+        sample_spot.update(location_id="loc_b", location_name="Area B", distance_km=7.0)
+        self.assertTrue(self.db.save_hotspot(sample_spot))
+        self.assertEqual(len(self.db.get_recent_hotspots(days=30_000)), 2)
+
+    def test_missing_firms_key_never_falls_back_to_simulation(self):
+        service = FirmsService(map_key="")
+        with self.assertRaises(RuntimeError):
+            service.fetch_country_hotspots()
+
+    def test_monitoring_lock_prevents_overlapping_cycles(self):
+        self.assertTrue(self.db.acquire_monitoring_lock())
+        self.assertFalse(self.db.acquire_monitoring_lock())
+        self.db.release_monitoring_lock()
+        self.assertTrue(self.db.acquire_monitoring_lock())
+        self.db.release_monitoring_lock()
+
     def test_message_formatting(self):
         sample_spot = {
             "hotspot_uid": "test_spot_100",

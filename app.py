@@ -6,12 +6,15 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, Header, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional, List
+import asyncio
+import threading
+import logging
 
 from config import get_config
 from database import Database
@@ -32,6 +35,8 @@ firms = FirmsService(
     day_range=cfg.firms_day_range
 )
 notifier = Notifier(cfg)
+monitoring_lock = threading.Lock()
+logger = logging.getLogger("jaga_hutan.api")
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard(request: Request):
@@ -62,6 +67,22 @@ async def get_hotspots(days: int = Query(7, ge=1, le=30), location_id: Optional[
 @app.get("/api/stats")
 async def get_stats():
     return db.get_stats()
+
+@app.get("/health/live")
+async def health_live():
+    return {"status": "ok"}
+
+@app.get("/health/ready")
+async def health_ready():
+    try:
+        db.get_stats()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database tidak siap")
+    return {
+        "status": "ready",
+        "firms_configured": firms.is_configured(),
+        "simulation_mode": cfg.simulation_enabled,
+    }
 
 @app.get("/api/export/geojson")
 async def export_geojson(days: int = Query(7, ge=1, le=30), location_id: Optional[str] = None):
@@ -118,15 +139,28 @@ async def export_csv(days: int = Query(7, ge=1, le=30), location_id: Optional[st
     )
 
 @app.post("/api/trigger-check")
-async def trigger_check(simulate: bool = False):
+async def trigger_check(
+    simulate: bool = False,
+    x_admin_token: Optional[str] = Header(default=None),
+):
+    if not cfg.manual_trigger_token:
+        raise HTTPException(status_code=503, detail="Pemicu manual dinonaktifkan")
+    if x_admin_token != cfg.manual_trigger_token:
+        raise HTTPException(status_code=401, detail="Token admin tidak valid")
+    if simulate and not cfg.simulation_enabled:
+        raise HTTPException(status_code=403, detail="Mode simulasi tidak diizinkan")
+    if not monitoring_lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="Siklus monitoring sedang berjalan")
     try:
-        run_monitoring_cycle(cfg, db, firms, notifier, force_simulation=simulate)
+        await asyncio.to_thread(run_monitoring_cycle, cfg, db, firms, notifier, simulate)
         return {"status": "success", "message": "Pengecekan hotspot berhasil dijalankan."}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+    except Exception:
+        logger.exception("Pengecekan hotspot manual gagal")
+        return JSONResponse(status_code=500, content={"status": "error", "message": "Pengecekan gagal. Periksa log server."})
+    finally:
+        monitoring_lock.release()
 
 if __name__ == "__main__":
     import uvicorn
     print(f"🌲 Menjalankan Web Dashboard Jaga Hutan di http://localhost:{cfg.web_port}")
     uvicorn.run(app, host=cfg.web_host, port=cfg.web_port)
-

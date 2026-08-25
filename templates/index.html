@@ -81,6 +81,9 @@
             </button>
         </div>
     </header>
+    <div id="simulation-banner" class="hidden bg-amber-500 text-slate-950 text-center text-xs font-bold py-1 z-20">
+        MODE SIMULASI — DATA BUKAN DETEKSI SATELIT NYATA
+    </div>
 
     <!-- Main Container: Sidebar + Map -->
     <div class="flex-1 flex overflow-hidden relative">
@@ -182,6 +185,22 @@
         let locationCircles = [];
         let hotspotMarkers = [];
 
+        function escapeHtml(value) {
+            const element = document.createElement('div');
+            element.textContent = String(value ?? '');
+            return element.innerHTML;
+        }
+
+        async function fetchHealth() {
+            try {
+                const response = await fetch('/health/ready');
+                const health = await response.json();
+                document.getElementById('simulation-banner').classList.toggle('hidden', !health.simulation_mode);
+            } catch (error) {
+                console.error('Gagal memeriksa status layanan', error);
+            }
+        }
+
         // Load metadata & stats
         async function fetchStats() {
             try {
@@ -222,8 +241,8 @@
                     const item = document.createElement('div');
                     item.className = 'p-2 bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded cursor-pointer transition text-xs';
                     item.innerHTML = `
-                        <div class="font-medium text-slate-200">${loc.name}</div>
-                        <div class="text-[10px] text-slate-400">Radius: ${loc.radius_km} km • Min: ${loc.min_confidence}</div>
+                            <div class="font-medium text-slate-200">${escapeHtml(loc.name)}</div>
+                            <div class="text-[10px] text-slate-400">Radius: ${escapeHtml(loc.radius_km)} km • Min: ${escapeHtml(loc.min_confidence)}</div>
                     `;
                     item.onclick = () => {
                         map.flyTo([loc.latitude, loc.longitude], 10);
@@ -242,7 +261,7 @@
 
                     circle.bindPopup(`
                         <div class="text-slate-900 font-sans text-xs">
-                            <b class="text-sm text-emerald-700">${loc.name}</b><br>
+                            <b class="text-sm text-emerald-700">${escapeHtml(loc.name)}</b><br>
                             <b>Radius:</b> ${loc.radius_km} km<br>
                             <b>Koordinat:</b> ${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}
                         </div>
@@ -293,13 +312,13 @@
                                 <span>🔥 Hotspot Terdeteksi</span>
                             </div>
                             <hr class="my-1.5 border-slate-200">
-                            <div><b>Area:</b> ${spot.location_name || 'Di Luar Area Pantau'}</div>
+                            <div><b>Area:</b> ${escapeHtml(spot.location_name || 'Di Luar Area Pantau')}</div>
                             <div><b>Jarak Titik:</b> ${spot.distance_km ? spot.distance_km.toFixed(2) + ' km' : '-'}</div>
                             <div><b>Waktu:</b> ${spot.scan_date} ${spot.scan_time} UTC</div>
-                            <div><b>Confidence:</b> ${spot.confidence_label}</div>
+                            <div><b>Confidence:</b> ${escapeHtml(spot.confidence_label)}</div>
                             <div><b>Brightness:</b> ${spot.brightness ? spot.brightness.toFixed(1) + ' K' : '-'}</div>
                             <div><b>FRP:</b> ${spot.frp ? spot.frp.toFixed(1) + ' MW' : '-'}</div>
-                            <div><b>Satelit:</b> ${spot.satellite} (${spot.instrument || '-'})</div>
+                            <div><b>Satelit:</b> ${escapeHtml(spot.satellite)} (${escapeHtml(spot.instrument || '-')})</div>
                             <div class="mt-2 pt-1 border-t border-slate-200 text-center">
                                 <a href="${gmapsUrl}" target="_blank" class="inline-block bg-slate-900 text-white font-medium px-2.5 py-1 rounded text-[11px] hover:bg-slate-800">
                                     Buka Google Maps ↗
@@ -322,8 +341,21 @@
             const icon = document.getElementById('refresh-icon');
             icon.classList.add('animate-spin');
             try {
-                const res = await fetch('/api/trigger-check', { method: 'POST' });
+                let token = sessionStorage.getItem('jaga_hutan_admin_token');
+                if (!token) {
+                    token = prompt('Masukkan token admin untuk menjalankan pengecekan:');
+                    if (!token) return;
+                    sessionStorage.setItem('jaga_hutan_admin_token', token);
+                }
+                const res = await fetch('/api/trigger-check', {
+                    method: 'POST',
+                    headers: { 'X-Admin-Token': token }
+                });
                 const data = await res.json();
+                if (!res.ok) {
+                    if (res.status === 401) sessionStorage.removeItem('jaga_hutan_admin_token');
+                    throw new Error(data.detail || data.message || 'Pengecekan gagal');
+                }
                 alert(data.message || 'Pengecekan selesai!');
                 await loadHotspots();
             } catch (err) {
@@ -345,6 +377,7 @@
         // Init App
         window.addEventListener('DOMContentLoaded', async () => {
             await loadLocations();
+            await fetchHealth();
             await loadHotspots();
             await fetchStats();
         });

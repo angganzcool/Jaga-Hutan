@@ -130,6 +130,9 @@ cp .env.example .env
 Isi konfigurasi pada `.env`:
 ```ini
 FIRMS_MAP_KEY=masukkan_map_key_nasa_anda
+SIMULATION_MODE=false
+# Wajib untuk tombol "Cek Hotspot Sekarang". Gunakan token acak yang panjang.
+MANUAL_TRIGGER_TOKEN=ganti_dengan_token_admin_acak
 TELEGRAM_ENABLED=true
 TELEGRAM_BOT_TOKEN=token_bot_telegram_anda
 TELEGRAM_CHAT_ID=id_chat_atau_grup_anda
@@ -158,6 +161,9 @@ Tentukan wilayah pantauan di [`locations.json`](file:///d:/Jaga%20Hutan/location
   ```bash
   python main.py --simulate
   ```
+  Data simulasi hanya aktif melalui `--simulate` atau `SIMULATION_MODE=true` dan
+  akan diberi banner peringatan pada dashboard. Tanpa API key, mode normal akan
+  berhenti agar data simulasi tidak disalahartikan sebagai deteksi nyata.
 - **Jalankan Monitoring 1x (Cocok untuk Cron Job VPS)**:
   ```bash
   python main.py --once
@@ -173,6 +179,12 @@ Tentukan wilayah pantauan di [`locations.json`](file:///d:/Jaga%20Hutan/location
 docker compose up -d
 ```
 Dashboard akan otomatis aktif di `http://localhost:8000` dan background worker akan memantau titik api secara terus-menerus.
+
+Endpoint pemeriksaan layanan tersedia di `/health/live` dan `/health/ready`.
+Data SQLite Docker disimpan pada named volume `jaga-hutan-data` sehingga aman
+digunakan bersama oleh container web dan worker.
+Port dashboard hanya diikat ke `127.0.0.1:8000`. Untuk layanan publik, arahkan
+domain HTTPS melalui reverse proxy Nginx; jangan membuka port 8000 langsung ke internet.
 
 ---
 

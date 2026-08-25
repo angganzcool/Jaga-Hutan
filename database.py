@@ -14,8 +14,11 @@ class Database:
     def get_connection(self):
         if self._mem_conn:
             return self._mem_conn
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout = 30000")
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
     def init_db(self):
@@ -59,12 +62,62 @@ class Database:
             );
             """)
 
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS hotspot_locations (
+                hotspot_uid TEXT NOT NULL,
+                location_id TEXT NOT NULL,
+                location_name TEXT,
+                distance_km REAL,
+                PRIMARY KEY (hotspot_uid, location_id),
+                FOREIGN KEY (hotspot_uid) REFERENCES hotspots(hotspot_uid) ON DELETE CASCADE
+            );
+            """)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS monitoring_lock (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                locked_until TEXT NOT NULL
+            );
+            """)
+            cursor.execute("""
+            INSERT OR IGNORE INTO hotspot_locations (hotspot_uid, location_id, location_name, distance_km)
+            SELECT hotspot_uid, location_id, location_name, distance_km
+            FROM hotspots WHERE location_id IS NOT NULL AND location_id != ''
+            """)
+
             # Indeks untuk query performa
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_hotspots_uid ON hotspots(hotspot_uid);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_hotspots_loc ON hotspots(location_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_hotspots_date ON hotspots(scan_date);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_hotspot_locations_loc ON hotspot_locations(location_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_alert_logs_dedup ON alert_logs(hotspot_uid, location_id, channel, sent_at);")
             
+            conn.commit()
+
+    def acquire_monitoring_lock(self, lease_minutes: int = 10) -> bool:
+        now = datetime.now(timezone.utc)
+        locked_until = (now + timedelta(minutes=lease_minutes)).strftime("%Y-%m-%d %H:%M:%S")
+        now_text = now.strftime("%Y-%m-%d %H:%M:%S")
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("BEGIN IMMEDIATE")
+            cursor.execute(
+                "INSERT OR IGNORE INTO monitoring_lock (id, locked_until) VALUES (1, ?)",
+                (locked_until,),
+            )
+            if cursor.rowcount > 0:
+                conn.commit()
+                return True
+            cursor.execute(
+                "UPDATE monitoring_lock SET locked_until = ? WHERE id = 1 AND locked_until <= ?",
+                (locked_until, now_text),
+            )
+            acquired = cursor.rowcount > 0
+            conn.commit()
+            return acquired
+
+    def release_monitoring_lock(self):
+        with self.get_connection() as conn:
+            conn.execute("DELETE FROM monitoring_lock WHERE id = 1")
             conn.commit()
 
     def save_hotspot(self, data: Dict[str, Any]) -> bool:
@@ -99,8 +152,17 @@ class Database:
                     data.get("location_name", ""),
                     data.get("distance_km", 0.0),
                 ))
+                cursor.execute("""
+                INSERT OR IGNORE INTO hotspot_locations (
+                    hotspot_uid, location_id, location_name, distance_km
+                ) VALUES (?, ?, ?, ?)
+                """, (
+                    data["hotspot_uid"], data.get("location_id", ""),
+                    data.get("location_name", ""), data.get("distance_km", 0.0)
+                ))
+                association_is_new = cursor.rowcount > 0
                 conn.commit()
-                return cursor.rowcount > 0
+                return association_is_new
             except Exception as e:
                 print(f"[DB ERROR] Gagal menyimpan hotspot: {e}")
                 return False
@@ -140,12 +202,20 @@ class Database:
         cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            query = "SELECT * FROM hotspots WHERE scan_date >= ?"
+            query = """
+                SELECT h.id, h.hotspot_uid, h.latitude, h.longitude, h.brightness,
+                       h.scan_date, h.scan_time, h.satellite, h.instrument,
+                       h.confidence_code, h.confidence_label, h.frp, h.daynight,
+                       hl.location_id, hl.location_name, hl.distance_km, h.created_at
+                FROM hotspots h
+                JOIN hotspot_locations hl ON hl.hotspot_uid = h.hotspot_uid
+                WHERE h.scan_date >= ?
+            """
             params = [cutoff_date]
             if location_id:
-                query += " AND location_id = ?"
+                query += " AND hl.location_id = ?"
                 params.append(location_id)
-            query += " ORDER BY scan_date DESC, scan_time DESC"
+            query += " ORDER BY h.scan_date DESC, h.scan_time DESC"
             cursor.execute(query, params)
             return [dict(row) for row in cursor.fetchall()]
 

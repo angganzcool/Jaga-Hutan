@@ -20,6 +20,9 @@ class MonitoredLocation:
 
 @dataclass
 class AppConfig:
+    environment: str = os.getenv("APP_ENV", "development").lower()
+    simulation_enabled: bool = os.getenv("SIMULATION_MODE", "false").lower() in ("true", "1", "yes")
+    manual_trigger_token: str = os.getenv("MANUAL_TRIGGER_TOKEN", "")
     # NASA FIRMS
     firms_map_key: str = os.getenv("FIRMS_MAP_KEY", "")
     firms_source: str = os.getenv("FIRMS_SOURCE", "VIIRS_SNPP_NRT")
@@ -68,6 +71,13 @@ class AppConfig:
                     )
                     for idx, item in enumerate(data)
                 ]
+                for location in self.locations:
+                    if not -90 <= location.latitude <= 90:
+                        raise ValueError(f"Latitude {location.name} harus antara -90 dan 90")
+                    if not -180 <= location.longitude <= 180:
+                        raise ValueError(f"Longitude {location.name} harus antara -180 dan 180")
+                    if location.radius_km <= 0:
+                        raise ValueError(f"Radius {location.name} harus lebih besar dari 0")
         except Exception as e:
             print(f"[WARN] Gagal membaca {self.locations_file}: {e}")
             self.locations = []
