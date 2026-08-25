@@ -1,7 +1,7 @@
 <div align="center">
 
 # 🌲 Jaga Hutan (Forest Guard)
-### *Open-Source AI & Satellite-Powered Early Warning System for Wildfire & Hotspot Detection*
+### *Open-Source AI & Satellite-Powered Wildfire Early Warning System*
 **Sistem Monitoring & Peringatan Dini Karhutla Berbasis Satelit NASA & Bot WhatsApp/Telegram**
 
 <br/>
@@ -15,13 +15,22 @@
 
 <br/>
 
-[![Donate via PayPal](https://img.shields.io/badge/Support%20Project-PayPal%20Subscribe-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-63C1163027265553ANKGZKEI)
-[![GitHub Stars](https://img.shields.io/github/stars/angganzcool/Jaga-Hutan?style=for-the-badge&color=gold)](https://github.com)
-[![GitHub Forks](https://img.shields.io/github/forks/angganzcool/Jaga-Hutan?style=for-the-badge&color=blue)](https://github.com)
+[![Saweria](https://img.shields.io/badge/Donasi_Lokal-Saweria_(QRIS)-FAAE2B?style=for-the-badge&logo=cashapp&logoColor=black)](https://saweria.co/angganz)
+[![Buy Me A Coffee](https://img.shields.io/badge/Donate-Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/angganz)
+[![GitHub Stars](https://img.shields.io/github/stars/angganzcool/Jaga-Hutan?style=for-the-badge&color=gold)](https://github.com/angganzcool/Jaga-Hutan)
+[![GitHub Forks](https://img.shields.io/github/forks/angganzcool/Jaga-Hutan?style=for-the-badge&color=blue)](https://github.com/angganzcool/Jaga-Hutan)
 
 <br/>
 
-**[🇮🇩 Baca dalam Bahasa Indonesia](#-bahasa-indonesia)** • **[🇬🇧 Read in English](#-english)** • **[☕ Dukung & Donasi](#-dukungan--donasi--support--donate)**
+<!-- Language Switcher Buttons -->
+### 🌐 Pilih Bahasa / Select Language
+
+[![🇮🇩 Baca dalam Bahasa Indonesia](https://img.shields.io/badge/🇮🇩%20BACA_DALAM-BAHASA_INDONESIA-10b981?style=for-the-badge)](#-bahasa-indonesia) &nbsp;&nbsp;&nbsp;&nbsp; [![🇬🇧 Read in English](https://img.shields.io/badge/🇬🇧%20READ_IN-ENGLISH-3b82f6?style=for-the-badge)](#-english)
+
+<br/>
+
+<img src="docs/images/wildfire_aerial.png" alt="Wildfire Aerial View" width="100%" style="border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);" />
+<p align="center"><i>Pantauan kabut asap dan kebakaran hutan dan lahan gambut (Karhutla) di Indonesia</i></p>
 
 ---
 
@@ -33,10 +42,19 @@
 
 ## 🇮🇩 Bahasa Indonesia
 
-### 💡 Mengapa Jaga Hutan?
-Kebakaran Hutan dan Lahan (Karhutla) serta pengrusakan ekosistem gambut melepaskan jutaan ton karbon dan memicu kabut asap lintas negara. Sistem monitoring korporat seringkali mahal dan sulit diakses masyarakat lokal.
+<div align="right">
+  <a href="#-english">👉 <b>[Switch to English 🇬🇧]</b></a>
+</div>
 
-**Jaga Hutan** adalah proyek *open-source* berbiaya rendah (bahkan hampir **100% gratis**) yang memungkinkan siapa saja—mulai dari relawan, aktivis lingkungan, perangkat desa, hingga perusahaan—untuk:
+### 💡 Mengapa Jaga Hutan?
+Kebakaran Hutan dan Lahan (Karhutla) serta pengrusakan ekosistem gambut melepaskan jutaan ton emisi karbon dan memicu bencana kabut asap lintas negara. Sistem monitoring satelit komersial seringkali mahal dan sulit dijangkau masyarakat di garis depan.
+
+<div align="center">
+  <img src="docs/images/firefighters_patrol.jpg" alt="Patroli Pemadaman Karhutla" width="85%" style="border-radius: 10px; margin: 12px 0;" />
+  <p><i>Tim patroli lapangan membutuhkan deteksi dini yang cepat dan akurat ke smartphone mereka.</i></p>
+</div>
+
+**Jaga Hutan** adalah proyek *open-source* berbiaya rendah (bahkan hampir **100% gratis**) yang memungkinkan relawan, petugas desa, aktivis lingkungan, hingga perusahaan untuk:
 1. **Memantau titik panas (*hotspot*) satelit secara otomatis** 24/7.
 2. **Menyaring area spesifik** (radius desa, batas konsesi, hutan lindung).
 3. **Menerima alert dini seketika via WhatsApp & Telegram** lengkap dengan titik koordinat dan navigasi Google Maps.
@@ -157,8 +175,17 @@ Tentukan wilayah pantauan di [`locations.json`](file:///d:/Jaga%20Hutan/location
 
 ## 🇬🇧 English
 
+<div align="right">
+  <a href="#-bahasa-indonesia">👉 <b>[Baca dalam Bahasa Indonesia 🇮🇩]</b></a>
+</div>
+
 ### 💡 Why Jaga Hutan?
-Wildfires and peatland degradation release millions of tons of greenhouse gases into the atmosphere and cause hazardous transboundary haze. Commercial satellite monitoring platforms are often expensive and out of reach for local communities and frontline rangers.
+Wildfires and peatland degradation release millions of tons of greenhouse gases into the atmosphere and cause hazardous transboundary haze. Commercial satellite monitoring platforms are often expensive and out of reach for frontline rangers and local communities.
+
+<div align="center">
+  <img src="docs/images/firefighters_patrol.jpg" alt="Wildfire Response Patrol" width="85%" style="border-radius: 10px; margin: 12px 0;" />
+  <p><i>Empowering local patrol units with real-time early warnings sent straight to WhatsApp & Telegram.</i></p>
+</div>
 
 **Jaga Hutan** (*"Guard the Forest"*) is a lightweight, open-source, ultra-low-cost (nearly **100% free**) wildfire and hotspot early warning ecosystem designed to empower rangers, indigenous communities, NGOs, and environmental organizations worldwide.
 
@@ -195,18 +222,18 @@ Wildfires and peatland degradation release millions of tons of greenhouse gases 
 
 Proyek **Jaga Hutan** dikembangkan secara independen dan bersifat *open-source* untuk membantu pelestarian lingkungan serta pencegahan karhutla. 
 
-Dukungan finansial dari Anda sangat berarti untuk:
-- 🛰️ Pengembangan fitur AI & integrasi data satelit lanjutan.
-- 🖥️ Penyediaan server pengujian & infrastruktur open-data publik.
-- 🌲 Pelatihan dan pendampingan implementasi bagi komunitas/relawan di lapangan.
+Dukungan dari Anda sangat berarti untuk membiayai server riset, infrastruktur peta publik, dan edukasi pencegahan karhutla ke masyarakat lapangan.
 
 <div align="center">
 
-### 💚 Langganan Donasi / Monthly Sponsorship via PayPal:
+### 💚 Pilihan Jalur Donasi:
 
-[![Donate with PayPal](https://img.shields.io/badge/PayPal-Subscribe_Support_Plan-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-63C1163027265553ANKGZKEI)
+| 🇮🇩 Donasi Indonesia (QRIS / E-Wallet) | 🌍 International Donations |
+| :---: | :---: |
+| [![Saweria QRIS](https://img.shields.io/badge/Saweria-QRIS_%26_E--Wallet-FAAE2B?style=for-the-badge&logo=cashapp&logoColor=black)](https://saweria.co/angganz) | [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-Support_Project-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/angganz) |
+| 👉 **[saweria.co/angganz](https://saweria.co/angganz)**<br>*(GoPay, OVO, DANA, ShopeePay, QRIS)* | 👉 **[buymeacoffee.com/angganz](https://buymeacoffee.com/angganz)**<br>*(Credit Card, Global Payments)* |
 
-👉 **[Klik di Sini untuk Berlangganan Donasi via PayPal](https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-63C1163027265553ANKGZKEI)** 👈
+<br/>
 
 *Terima kasih atas kepedulian Anda terhadap kelestarian hutan dan masa depan bumi kita!* 🌿
 
