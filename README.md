@@ -1,41 +1,26 @@
 <div align="center">
 
-# 🌲 Jaga Hutan (Forest Guard)
-### *Open-Source AI & Satellite-Powered Wildfire Early Warning System*
-**Sistem Monitoring & Peringatan Dini Karhutla Berbasis Satelit NASA & Bot WhatsApp/Telegram**
+<img src="docs/images/jaga-hutan-hero.jpg" alt="Jaga Hutan — Open-Source Wildfire Early Warning untuk Indonesia" width="100%" />
 
-<br/>
+### Sistem peringatan dini karhutla berbasis NASA FIRMS, peta interaktif, dan notifikasi otomatis
 
-[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![NASA FIRMS](https://img.shields.io/badge/NASA-FIRMS%20API-E03C31?style=for-the-badge&logo=nasa&logoColor=white)](https://firms.modaps.eosdis.nasa.gov/)
-[![Telegram Bot](https://img.shields.io/badge/Telegram-Bot%20API-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
-[![WhatsApp](https://img.shields.io/badge/WhatsApp-Alert%20Gateway-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/WhiskeySockets/Baileys)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[🌐 **LIVE DASHBOARD**](https://jagahutan.humblee.shop) · [🎯 **TARGET DONASI Rp75 JUTA**](TRANSPARENCY.md) · [📦 **RELEASE v1.0.0**](https://github.com/angganzcool/Jaga-Hutan/releases/tag/v1.0.0)
+
+Pantau hotspot Indonesia secara otomatis, prioritaskan area berisiko, dan bantu
+komunitas menerima peringatan lebih cepat melalui Telegram atau WhatsApp.
+
 [![CI Tests](https://img.shields.io/github/actions/workflow/status/angganzcool/Jaga-Hutan/ci.yml?branch=main&style=for-the-badge&label=CI%20BUILD&logo=githubactions&logoColor=white)](https://github.com/angganzcool/Jaga-Hutan/actions)
-
-<br/>
+[![Release](https://img.shields.io/github/v/release/angganzcool/Jaga-Hutan?style=for-the-badge&color=2f855a)](https://github.com/angganzcool/Jaga-Hutan/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/angganzcool/Jaga-Hutan?style=for-the-badge&color=gold)](https://github.com/angganzcool/Jaga-Hutan/stargazers)
 
 [![Saweria](https://img.shields.io/badge/Donasi_Lokal-Saweria_(QRIS)-FAAE2B?style=for-the-badge&logo=cashapp&logoColor=black)](https://saweria.co/angganz)
 [![Buy Me A Coffee](https://img.shields.io/badge/Donate-Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/angganz)
-[![GitHub Stars](https://img.shields.io/github/stars/angganzcool/Jaga-Hutan?style=for-the-badge&color=gold)](https://github.com/angganzcool/Jaga-Hutan)
-[![GitHub Forks](https://img.shields.io/github/forks/angganzcool/Jaga-Hutan?style=for-the-badge&color=blue)](https://github.com/angganzcool/Jaga-Hutan)
-
-<br/>
-
-### [🌐 Buka Live Dashboard — jagahutan.humblee.shop](https://jagahutan.humblee.shop)
 
 <br/>
 
 <!-- Language Switcher Buttons -->
-### 🌐 Pilih Bahasa / Select Language
-
 [![🇮🇩 Baca dalam Bahasa Indonesia](https://img.shields.io/badge/🇮🇩%20BACA_DALAM-BAHASA_INDONESIA-10b981?style=for-the-badge)](#-bahasa-indonesia) &nbsp;&nbsp;&nbsp;&nbsp; [![🇬🇧 Read in English](https://img.shields.io/badge/🇬🇧%20READ_IN-ENGLISH-3b82f6?style=for-the-badge)](#-english)
-
-<br/>
-
-<img src="docs/images/wildfire_aerial.png" alt="Wildfire Aerial View" width="100%" style="border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);" />
-<p align="center"><i>Pantauan kabut asap dan kebakaran hutan dan lahan gambut (Karhutla) di Indonesia</i></p>
 
 ---
 
