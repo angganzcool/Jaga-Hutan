@@ -106,6 +106,10 @@ class TestJagaHutan(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             service.fetch_country_hotspots()
 
+    def test_firms_day_range_is_limited_to_api_maximum(self):
+        service = FirmsService(map_key="test-key", day_range=10)
+        self.assertEqual(service.day_range, 5)
+
     def test_monitoring_lock_prevents_overlapping_cycles(self):
         self.assertTrue(self.db.acquire_monitoring_lock())
         self.assertFalse(self.db.acquire_monitoring_lock())

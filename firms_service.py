@@ -7,12 +7,16 @@ from geo_utils import normalize_confidence
 
 class FirmsService:
     BASE_URL = "https://firms.modaps.eosdis.nasa.gov/api"
+    # Bounding box Indonesia (west, south, east, north), used when the FIRMS
+    # country endpoint is temporarily unavailable or rejects the request.
+    INDONESIA_BBOX = (94.5, -11.5, 141.5, 6.5)
 
     def __init__(self, map_key: str, source: str = "VIIRS_SNPP_NRT", country: str = "IDN", day_range: int = 1):
         self.map_key = map_key.strip()
         self.source = source
         self.country = country
-        self.day_range = max(1, min(day_range, 10))
+        # FIRMS currently accepts a maximum range of five days per API query.
+        self.day_range = max(1, min(day_range, 5))
 
     def is_configured(self) -> bool:
         return bool(self.map_key) and self.map_key != "YOUR_NASA_FIRMS_MAP_KEY"
@@ -39,7 +43,10 @@ class FirmsService:
                 print(f"[FIRMS API ERROR] MAP_KEY tidak valid atau unauthorized (Status {resp.status_code}).")
                 return []
             else:
-                print(f"[FIRMS API ERROR] Gagal fetch data (Status {resp.status_code}): {resp.text[:200]}")
+                print(f"[FIRMS API WARN] Country query gagal (Status {resp.status_code}); mencoba area fallback.")
+                if self.country.upper() == "IDN":
+                    return self.fetch_area_hotspots(*self.INDONESIA_BBOX)
+                print(f"[FIRMS API ERROR] Tidak ada area fallback untuk negara {self.country}.")
                 return []
         except Exception as e:
             print(f"[FIRMS API ERROR] Exception saat request: {e}")
