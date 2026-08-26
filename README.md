@@ -239,6 +239,10 @@ Wildfires and peatland degradation release millions of tons of greenhouse gases 
 
 ## ☕ Dukungan & Donasi / Support & Donate
 
+🎯 **Target pendanaan awal: Rp75.000.000** untuk pilot lapangan dan operasional
+awal selama 12 bulan. Rincian alokasi serta laporan penggunaan dana tersedia
+secara terbuka di **[TRANSPARENCY.md](TRANSPARENCY.md)**.
+
 Proyek **Jaga Hutan** dikembangkan secara independen dan bersifat *open-source* untuk membantu pelestarian lingkungan serta pencegahan karhutla. 
 
 Dukungan dari Anda sangat berarti untuk membiayai server riset, infrastruktur peta publik, dan edukasi pencegahan karhutla ke masyarakat lapangan.

@@ -17,17 +17,25 @@ Donasi yang diterima akan diprioritaskan secara berurutan untuk:
 Donasi tidak menjamin fitur tertentu atau tingkat layanan komersial. Keputusan
 teknis tetap mempertimbangkan keselamatan, manfaat publik, dan kapasitas proyek.
 
-## Target pendanaan awal
+## Target pendanaan awal: Rp75.000.000
 
-| Target | Hasil yang ingin dicapai |
-| --- | --- |
-| Rp300.000/bulan | Menjaga VPS, backup, dan monitoring demo publik |
-| Rp500.000 terkumpul | Menstabilkan notifikasi dan dokumentasi deployment |
-| Rp1.500.000 terkumpul | Menyiapkan uji penggunaan dengan komunitas/relawan |
-| Rp5.000.000 terkumpul | Mendukung perangkat demonstrasi dan validasi lapangan |
+Target awal sebesar **Rp75 juta** disiapkan untuk membawa Jaga Hutan dari demo
+open-source menuju pilot lapangan yang stabil dan dapat dipakai komunitas. Rencana
+alokasi awalnya adalah:
 
-Target adalah batas perencanaan, bukan pernyataan biaya yang sudah dikeluarkan.
-Pengeluaran aktual akan dicatat pada laporan bulanan.
+| Kebutuhan | Anggaran | Hasil yang ingin dicapai |
+| --- | ---: | --- |
+| Infrastruktur, domain, backup, dan monitoring | Rp12.000.000 | Menjaga layanan demo dan sistem peringatan tetap tersedia selama 12 bulan |
+| Perangkat dan pelaksanaan pilot lapangan | Rp25.000.000 | Menyediakan perangkat demonstrasi, instalasi, transportasi, dan validasi bersama komunitas |
+| Integrasi data, sensor, dan pengujian notifikasi | Rp15.000.000 | Meningkatkan ketahanan integrasi NASA FIRMS serta kanal Telegram dan WhatsApp |
+| Pelatihan, dokumentasi, dan pendampingan komunitas | Rp10.000.000 | Menyiapkan materi penggunaan dan kegiatan onboarding relawan |
+| Pengembangan, audit keamanan, dan pemeliharaan | Rp8.000.000 | Memperbaiki reliabilitas, keamanan, serta fitur prioritas hasil pilot |
+| Cadangan operasional dan administrasi | Rp5.000.000 | Menutup kebutuhan tak terduga dengan pencatatan yang transparan |
+| **Total** | **Rp75.000.000** | **Pilot lapangan dan operasional awal selama 12 bulan** |
+
+Anggaran tersebut adalah estimasi perencanaan, bukan pernyataan biaya yang sudah
+dikeluarkan. Alokasi dapat disesuaikan berdasarkan kebutuhan pilot; setiap
+perubahan material dan pengeluaran aktual akan dijelaskan dalam laporan bulanan.
 
 ## Laporan bulanan
 
