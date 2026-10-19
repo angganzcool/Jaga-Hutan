@@ -47,6 +47,10 @@ def _run_monitoring_cycle(cfg, db, firms, notifier, force_simulation: bool = Fal
         print("✅ Tidak ada data hotspot baru terdeteksi.")
         return
 
+    # Simpan seluruh titik api se-Indonesia ke database untuk Web GIS Nasional
+    db.save_hotspots_batch(raw_hotspots)
+    print(f"🗺️ Disimpan ke database: {len(raw_hotspots)} titik api se-Indonesia (Web GIS Nasional).")
+
     total_matches = 0
     total_alerts_dispatched = 0
 

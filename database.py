@@ -155,15 +155,31 @@ class Database:
                     data.get("location_name", ""),
                     data.get("distance_km", 0.0),
                 ))
-                cursor.execute("""
-                INSERT OR IGNORE INTO hotspot_locations (
-                    hotspot_uid, location_id, location_name, distance_km
-                ) VALUES (?, ?, ?, ?)
-                """, (
-                    data["hotspot_uid"], data.get("location_id", ""),
-                    data.get("location_name", ""), data.get("distance_km", 0.0)
-                ))
-                association_is_new = cursor.rowcount > 0
+                inserted_hotspot = cursor.rowcount > 0
+
+                association_is_new = False
+                if data.get("location_id"):
+                    cursor.execute("""
+                    INSERT OR IGNORE INTO hotspot_locations (
+                        hotspot_uid, location_id, location_name, distance_km
+                    ) VALUES (?, ?, ?, ?)
+                    """, (
+                        data["hotspot_uid"], data.get("location_id", ""),
+                        data.get("location_name", ""), data.get("distance_km", 0.0)
+                    ))
+                    association_is_new = cursor.rowcount > 0
+                    if not inserted_hotspot:
+                        cursor.execute("""
+                        UPDATE hotspots
+                        SET location_id = ?, location_name = ?, distance_km = ?
+                        WHERE hotspot_uid = ? AND (location_id IS NULL OR location_id = '')
+                        """, (
+                            data.get("location_id", ""), data.get("location_name", ""),
+                            data.get("distance_km", 0.0), data["hotspot_uid"]
+                        ))
+                else:
+                    association_is_new = inserted_hotspot
+
                 conn.commit()
                 return association_is_new
             except Exception as e:
@@ -174,7 +190,7 @@ class Database:
         """
         Menyimpan banyak data hotspot sekaligus dalam 1 transaksi database tunggal (batch insert).
         Menghindari disk lock contention dan mempercepat I/O secara masif.
-        Mengembalikan total asosiasi lokasi hotspot baru yang disimpan.
+        Mendukung titik nasional se-Indonesia maupun asosiasi spesifik ke posko pantau.
         """
         if not hotspots:
             return 0
@@ -199,12 +215,13 @@ class Database:
                 d.get("location_name", ""),
                 d.get("distance_km", 0.0),
             ))
-            loc_rows.append((
-                d["hotspot_uid"],
-                d.get("location_id", ""),
-                d.get("location_name", ""),
-                d.get("distance_km", 0.0)
-            ))
+            if d.get("location_id"):
+                loc_rows.append((
+                    d["hotspot_uid"],
+                    d.get("location_id", ""),
+                    d.get("location_name", ""),
+                    d.get("distance_km", 0.0)
+                ))
 
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -218,15 +235,25 @@ class Database:
                     location_id, location_name, distance_km
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, hotspot_rows)
+                new_hotspots_count = cursor.rowcount
 
-                cursor.executemany("""
-                INSERT OR IGNORE INTO hotspot_locations (
-                    hotspot_uid, location_id, location_name, distance_km
-                ) VALUES (?, ?, ?, ?)
-                """, loc_rows)
-                new_associations = cursor.rowcount
+                new_associations = 0
+                if loc_rows:
+                    cursor.executemany("""
+                    INSERT OR IGNORE INTO hotspot_locations (
+                        hotspot_uid, location_id, location_name, distance_km
+                    ) VALUES (?, ?, ?, ?)
+                    """, loc_rows)
+                    new_associations = cursor.rowcount
+
+                    cursor.executemany("""
+                    UPDATE hotspots
+                    SET location_id = ?, location_name = ?, distance_km = ?
+                    WHERE hotspot_uid = ? AND (location_id IS NULL OR location_id = '')
+                    """, [(r[1], r[2], r[3], r[0]) for r in loc_rows])
+
                 conn.commit()
-                return new_associations
+                return new_associations if loc_rows else new_hotspots_count
             except Exception as e:
                 conn.rollback()
                 print(f"[DB ERROR] Gagal batch insert hotspot: {e}")
@@ -263,27 +290,41 @@ class Database:
     def get_recent_hotspots(self, days: int = 7, location_id: Optional[str] = None, min_frp: Optional[float] = None) -> List[Dict[str, Any]]:
         """
         Mengambil daftar hotspot terkini untuk visualisasi di dashboard.
-        Mendukung filter wilayah dan intensitas minimal FRP (Fire Radiative Power).
+        Mendukung pemantauan seluruh Indonesia (nasional) maupun filter posko wilayah tertentu.
         """
         cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            query = """
-                SELECT h.id, h.hotspot_uid, h.latitude, h.longitude, h.brightness,
-                       h.scan_date, h.scan_time, h.satellite, h.instrument,
-                       h.confidence_code, h.confidence_label, h.frp, h.daynight,
-                       hl.location_id, hl.location_name, hl.distance_km, h.created_at
-                FROM hotspots h
-                JOIN hotspot_locations hl ON hl.hotspot_uid = h.hotspot_uid
-                WHERE h.scan_date >= ?
-            """
             params: List[Any] = [cutoff_date]
+
             if location_id:
-                query += " AND hl.location_id = ?"
+                query = """
+                    SELECT h.id, h.hotspot_uid, h.latitude, h.longitude, h.brightness,
+                           h.scan_date, h.scan_time, h.satellite, h.instrument,
+                           h.confidence_code, h.confidence_label, h.frp, h.daynight,
+                           hl.location_id, hl.location_name, hl.distance_km, h.created_at
+                    FROM hotspots h
+                    JOIN hotspot_locations hl ON hl.hotspot_uid = h.hotspot_uid
+                    WHERE h.scan_date >= ? AND hl.location_id = ?
+                """
                 params.append(location_id)
+            else:
+                query = """
+                    SELECT h.id, h.hotspot_uid, h.latitude, h.longitude, h.brightness,
+                           h.scan_date, h.scan_time, h.satellite, h.instrument,
+                           h.confidence_code, h.confidence_label, h.frp, h.daynight,
+                           COALESCE(hl.location_id, '') AS location_id,
+                           COALESCE(hl.location_name, 'Wilayah Teritorial Indonesia') AS location_name,
+                           hl.distance_km, h.created_at
+                    FROM hotspots h
+                    LEFT JOIN hotspot_locations hl ON hl.hotspot_uid = h.hotspot_uid
+                    WHERE h.scan_date >= ?
+                """
+
             if min_frp is not None and min_frp > 0:
                 query += " AND h.frp >= ?"
                 params.append(min_frp)
+
             query += " ORDER BY h.scan_date DESC, h.scan_time DESC"
             cursor.execute(query, params)
             return [dict(row) for row in cursor.fetchall()]

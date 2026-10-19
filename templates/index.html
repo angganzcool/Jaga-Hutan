@@ -94,7 +94,7 @@
                 <div>
                     <label class="text-xs font-semibold text-slate-300 block mb-1.5">Filter Wilayah Pantau</label>
                     <select id="filter-location" onchange="loadHotspots()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
-                        <option value="">Semua Wilayah</option>
+                        <option value="">Seluruh Indonesia (Semua Wilayah)</option>
                     </select>
                 </div>
 
@@ -204,7 +204,7 @@
             preferCanvas: true,
             zoomControl: false,
             layers: [osmLayer]
-        }).setView([-2.2161, 113.9139], 6); // Default fokus di Indonesia / Kalimantan
+        }).setView([-0.7893, 118.0000], 5); // Tampilan mencakup seluruh Nusantara (Sabang s/d Merauke)
 
         const baseMaps = {
             "🗺️ Peta Jalan (OSM)": osmLayer,
@@ -255,7 +255,7 @@
                 const selectEl = document.getElementById('filter-location');
                 const listEl = document.getElementById('location-list');
                 
-                selectEl.innerHTML = '<option value="">Semua Wilayah</option>';
+                selectEl.innerHTML = '<option value="">Seluruh Indonesia (Semua Wilayah)</option>';
                 listEl.innerHTML = '';
 
                 // Clear previous circles

@@ -196,5 +196,34 @@ class TestJagaHutan(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIsInstance(res.json(), list)
 
+    def test_national_hotspots_without_posko(self):
+        national_spot = {
+            "hotspot_uid": "national_spot_papua",
+            "latitude": -4.2000,
+            "longitude": 138.5000,
+            "brightness": 320.0,
+            "scan_date": "2026-10-19",
+            "scan_time": "0800",
+            "satellite": "VIIRS_SNPP",
+            "instrument": "VIIRS",
+            "confidence_code": "nominal",
+            "confidence_label": "Sedang",
+            "frp": 18.5,
+            "daynight": "D"
+        }
+        # Simpan titik nasional tanpa location_id
+        saved = self.db.save_hotspot(national_spot)
+        self.assertTrue(saved)
+
+        # Query seluruh Indonesia (tanpa filter location_id)
+        all_spots = self.db.get_recent_hotspots(days=7)
+        self.assertTrue(any(s["hotspot_uid"] == "national_spot_papua" for s in all_spots))
+        papua_spot = next(s for s in all_spots if s["hotspot_uid"] == "national_spot_papua")
+        self.assertEqual(papua_spot["location_name"], "Wilayah Teritorial Indonesia")
+
+        # Query posko spesifik (tidak boleh memunculkan titik nasional luar posko)
+        posko_spots = self.db.get_recent_hotspots(days=7, location_id="loc_test")
+        self.assertFalse(any(s["hotspot_uid"] == "national_spot_papua" for s in posko_spots))
+
 if __name__ == "__main__":
     unittest.main()
