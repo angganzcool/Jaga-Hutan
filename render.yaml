@@ -1,0 +1,25 @@
+services:
+  # Web Dashboard Service
+  - type: web
+    name: jaga-hutan-dashboard
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    healthCheckPath: /health/live
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.5
+      - key: WEB_HOST
+        value: 0.0.0.0
+      - key: WEB_PORT
+        value: 10000
+      - key: FIRMS_MAP_KEY
+        sync: false
+      - key: SIMULATION_MODE
+        value: "true"
+      - key: TELEGRAM_ENABLED
+        value: "false"
+      - key: WHATSAPP_ENABLED
+        value: "false"
