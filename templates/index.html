@@ -108,6 +108,26 @@
                     </select>
                 </div>
 
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 block mb-1.5">Intensitas Daya Api (FRP)</label>
+                    <select id="filter-frp" onchange="loadHotspots()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="" selected>Semua Intensitas (Semua FRP)</option>
+                        <option value="10">FRP ≥ 10 MW (Api Nyata Sedang)</option>
+                        <option value="30">FRP ≥ 30 MW (Kebakaran Hebat)</option>
+                        <option value="50">FRP ≥ 50 MW (Karhutla Sangat Parah)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 block mb-1.5">Pembaruan Otomatis (Posko)</label>
+                    <select id="auto-refresh" onchange="setupAutoRefresh()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="0" selected>Mati (Manual)</option>
+                        <option value="60">Setiap 1 Menit</option>
+                        <option value="180">Setiap 3 Menit</option>
+                        <option value="300">Setiap 5 Menit</option>
+                    </select>
+                </div>
+
                 <!-- Export Data Buttons -->
                 <div class="pt-2 border-t border-slate-800">
                     <label class="text-xs font-semibold text-slate-400 block mb-1.5 uppercase tracking-wider">Ekspor Data GIS</label>
@@ -168,18 +188,30 @@
         // Inisialisasi Icons
         lucide.createIcons();
 
-        // Inisialisasi Leaflet Map
-        const map = L.map('map', {
-            zoomControl: false
-        }).setView([-2.2161, 113.9139], 6); // Default fokus di Indonesia / Kalimantan
-
-        L.control.zoom({ position: 'topright' }).addTo(map);
-
-        // Tile layer OpenStreetMap Dark / Satelit
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // Inisialisasi Tile Layers (Peta Jalan & Citra Satelit)
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
             attribution: '© OpenStreetMap contributors | NASA FIRMS'
-        }).addTo(map);
+        });
+
+        const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+
+        // Inisialisasi Leaflet Map dengan Canvas Renderer (60 FPS tanpa lag untuk ribuan titik api)
+        const map = L.map('map', {
+            preferCanvas: true,
+            zoomControl: false,
+            layers: [osmLayer]
+        }).setView([-2.2161, 113.9139], 6); // Default fokus di Indonesia / Kalimantan
+
+        const baseMaps = {
+            "🗺️ Peta Jalan (OSM)": osmLayer,
+            "🛰️ Citra Satelit (ESRI)": esriSatellite
+        };
+        L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
+        L.control.zoom({ position: 'topright' }).addTo(map);
 
         let locationsData = [];
         let locationCircles = [];
@@ -278,10 +310,12 @@
         async function loadHotspots() {
             const locId = document.getElementById('filter-location').value;
             const days = document.getElementById('filter-days').value;
+            const minFrp = document.getElementById('filter-frp').value;
 
             try {
                 let url = `/api/hotspots?days=${days}`;
                 if (locId) url += `&location_id=${locId}`;
+                if (minFrp) url += `&min_frp=${minFrp}`;
 
                 const res = await fetch(url);
                 const hotspots = await res.json();
@@ -369,9 +403,27 @@
         function downloadExport(format) {
             const locId = document.getElementById('filter-location').value;
             const days = document.getElementById('filter-days').value;
+            const minFrp = document.getElementById('filter-frp').value;
             let url = `/api/export/${format}?days=${days}`;
             if (locId) url += `&location_id=${locId}`;
+            if (minFrp) url += `&min_frp=${minFrp}`;
             window.open(url, '_blank');
+        }
+
+        // Setup Auto Refresh Posko Timer
+        let autoRefreshInterval = null;
+        function setupAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            const seconds = parseInt(document.getElementById('auto-refresh').value, 10);
+            if (seconds > 0) {
+                autoRefreshInterval = setInterval(async () => {
+                    await loadHotspots();
+                    await fetchStats();
+                }, seconds * 1000);
+            }
         }
 
         // Init App

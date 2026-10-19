@@ -1,6 +1,8 @@
 import csv
 import io
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 from geo_utils import normalize_confidence
@@ -17,6 +19,24 @@ class FirmsService:
         self.country = country
         # FIRMS currently accepts a maximum range of five days per API query.
         self.day_range = max(1, min(day_range, 5))
+        self.session = self._create_resilient_session()
+
+    def _create_resilient_session(self) -> requests.Session:
+        """
+        Membuat requests.Session dengan connection pooling dan auto-retry backoff
+        untuk ketahanan jaringan saat mengakses API NASA FIRMS.
+        """
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10, pool_maxsize=10)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        return session
 
     def is_configured(self) -> bool:
         return bool(self.map_key) and self.map_key != "YOUR_NASA_FIRMS_MAP_KEY"
@@ -36,7 +56,7 @@ class FirmsService:
         print(f"[FIRMS API] Requesting data dari: {url.replace(self.map_key, '***MAP_KEY***')}")
 
         try:
-            resp = requests.get(url, timeout=30)
+            resp = self.session.get(url, timeout=30)
             if resp.status_code == 200:
                 return self._parse_csv_data(resp.text)
             elif resp.status_code == 403 or resp.status_code == 401:
@@ -66,7 +86,7 @@ class FirmsService:
         url = f"{self.BASE_URL}/area/csv/{self.map_key}/{self.source}/{bbox}/{self.day_range}"
         
         try:
-            resp = requests.get(url, timeout=30)
+            resp = self.session.get(url, timeout=30)
             if resp.status_code == 200:
                 return self._parse_csv_data(resp.text)
             else:

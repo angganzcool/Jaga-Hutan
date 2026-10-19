@@ -137,12 +137,64 @@ class TestJagaHutan(unittest.TestCase):
         wa_msg = self.notifier.format_whatsapp_message(sample_spot, "Area Uji", 8.5, 30.0)
         self.assertIn("*PERINGATAN DINI HOTSPOT", wa_msg)
 
+    def test_bounding_box_prefilter(self):
+        from geo_utils import is_within_bounding_box
+        # Titik dekat (-2.25, 113.85) dari (-2.2161, 113.9139), radius 30 km -> True
+        self.assertTrue(is_within_bounding_box(-2.25, 113.85, -2.2161, 113.9139, 30.0))
+        # Titik jauh (Papua) -> False
+        self.assertFalse(is_within_bounding_box(-4.2000, 138.5000, -2.2161, 113.9139, 30.0))
+
+    def test_batch_saving_and_frp_filtering(self):
+        batch = [
+            {
+                "hotspot_uid": "batch_spot_1", "latitude": -2.25, "longitude": 113.85,
+                "scan_date": "2026-10-19", "scan_time": "0600", "frp": 45.0,
+                "location_id": "loc_test", "location_name": "Area Uji", "distance_km": 5.0,
+            },
+            {
+                "hotspot_uid": "batch_spot_2", "latitude": -2.26, "longitude": 113.86,
+                "scan_date": "2026-10-19", "scan_time": "0605", "frp": 5.0,
+                "location_id": "loc_test", "location_name": "Area Uji", "distance_km": 6.0,
+            }
+        ]
+        saved_count = self.db.save_hotspots_batch(batch)
+        self.assertEqual(saved_count, 2)
+
+        # Ambil semua titik
+        all_spots = self.db.get_recent_hotspots(days=7, location_id="loc_test")
+        self.assertGreaterEqual(len(all_spots), 2)
+
+        # Ambil hanya titik dengan FRP >= 30 MW (hanya batch_spot_1 yang harus muncul)
+        high_frp_spots = self.db.get_recent_hotspots(days=7, location_id="loc_test", min_frp=30.0)
+        self.assertEqual(len(high_frp_spots), 1)
+        self.assertEqual(high_frp_spots[0]["hotspot_uid"], "batch_spot_1")
+
+    def test_cluster_alert_formatting(self):
+        spots = [
+            {"latitude": -2.25, "longitude": 113.85, "frp": 50.0, "distance_km": 4.5, "satellite": "VIIRS", "confidence_label": "Tinggi", "brightness": 350.0},
+            {"latitude": -2.26, "longitude": 113.86, "frp": 12.0, "distance_km": 8.0, "satellite": "VIIRS", "confidence_label": "Sedang", "brightness": 320.0},
+            {"latitude": -2.27, "longitude": 113.87, "frp": 25.0, "distance_km": 10.0, "satellite": "VIIRS", "confidence_label": "Tinggi", "brightness": 335.0},
+            {"latitude": -2.28, "longitude": 113.88, "frp": 8.0, "distance_km": 12.0, "satellite": "MODIS", "confidence_label": "Sedang", "brightness": 315.0},
+        ]
+        tg_cluster = self.notifier.format_telegram_cluster_message(spots, "Hutan Lindung Area A", 25.0)
+        self.assertIn("KLUSTER HOTSPOT TERDETEKSI", tg_cluster)
+        self.assertIn("4 TITIK API", tg_cluster)
+        self.assertIn("50.0 MW", tg_cluster)
+
+        wa_cluster = self.notifier.format_whatsapp_cluster_message(spots, "Hutan Lindung Area A", 25.0)
+        self.assertIn("*KLUSTER HOTSPOT TERDETEKSI (4 TITIK API)*", wa_cluster)
+
     def test_dashboard_and_health_endpoints(self):
         client = TestClient(web_app)
         dashboard = client.get("/")
         self.assertEqual(dashboard.status_code, 200)
         self.assertIn("Jaga Hutan", dashboard.text)
         self.assertEqual(client.get("/health/live").json(), {"status": "ok"})
+        
+        # Test endpoint hotspots dengan filter min_frp
+        res = client.get("/api/hotspots?days=7&min_frp=10")
+        self.assertEqual(res.status_code, 200)
+        self.assertIsInstance(res.json(), list)
 
 if __name__ == "__main__":
     unittest.main()

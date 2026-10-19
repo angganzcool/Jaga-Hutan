@@ -63,6 +63,63 @@ class Notifier:
         )
         return msg
 
+    def format_telegram_cluster_message(self, hotspots: list, location_name: str, radius_km: float) -> str:
+        """
+        Format pesan darurat kelompok (cluster summary) untuk Telegram jika ada banyak hotspot sekaligus.
+        """
+        count = len(hotspots)
+        max_frp = max((s.get("frp", 0.0) for s in hotspots), default=0.0)
+        min_dist = min((s.get("distance_km", 999.0) for s in hotspots), default=0.0)
+        
+        # Urutkan berdasarkan FRP tertinggi
+        sorted_spots = sorted(hotspots, key=lambda s: s.get("frp", 0.0), reverse=True)
+        top_spot = sorted_spots[0]
+        maps = generate_maps_links(top_spot["latitude"], top_spot["longitude"])
+
+        msg = (
+            f"🚨 <b>KLUSTER HOTSPOT TERDETEKSI ({count} TITIK API)</b> 🚨\n\n"
+            f"📍 <b>Area Pantau:</b> {location_name}\n"
+            f"📏 <b>Radius Pantau:</b> {radius_km} km (Titik terdekat: <b>{min_dist:.2f} km</b>)\n"
+            f"⚡ <b>FRP Maksimum:</b> <b>{max_frp:.1f} MW</b>\n"
+            f"🔥 <b>Total Titik Terdeteksi:</b> <b>{count} hotspot baru</b>\n\n"
+            f"🎯 <b>Titik Prioritas Tertinggi:</b>\n"
+            f"• Koordinat: <code>{top_spot['latitude']:.5f}, {top_spot['longitude']:.5f}</code>\n"
+            f"• Satelit: {top_spot.get('satellite', 'VIIRS')} ({top_spot.get('confidence_label', '-')})\n"
+            f"• Suhu: {top_spot.get('brightness', 0):.1f} K | FRP: {top_spot.get('frp', 0):.1f} MW\n\n"
+            f"🗺️ <b>Navigasi Lapangan:</b>\n"
+            f"👉 <a href='{maps['google_maps']}'>Navigasi ke Titik Terparah di Google Maps</a>\n\n"
+            f"⚠️ <i>Disarankan membuka Web GIS Dashboard Jaga Hutan untuk memantau sebaran penuh kluster api.</i>"
+        )
+        return msg
+
+    def format_whatsapp_cluster_message(self, hotspots: list, location_name: str, radius_km: float) -> str:
+        """
+        Format pesan darurat kelompok (cluster summary) untuk WhatsApp jika ada banyak hotspot sekaligus.
+        """
+        count = len(hotspots)
+        max_frp = max((s.get("frp", 0.0) for s in hotspots), default=0.0)
+        min_dist = min((s.get("distance_km", 999.0) for s in hotspots), default=0.0)
+        
+        sorted_spots = sorted(hotspots, key=lambda s: s.get("frp", 0.0), reverse=True)
+        top_spot = sorted_spots[0]
+        maps = generate_maps_links(top_spot["latitude"], top_spot["longitude"])
+
+        msg = (
+            f"🚨 *KLUSTER HOTSPOT TERDETEKSI ({count} TITIK API)* 🚨\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📍 *Area Pantau:* {location_name}\n"
+            f"📏 *Radius Area:* {radius_km} km (Titik terdekat: {min_dist:.2f} km)\n"
+            f"⚡ *FRP Maksimum:* {max_frp:.1f} MW\n"
+            f"🔥 *Total Titik Terdeteksi:* {count} titik api baru\n\n"
+            f"🎯 *Titik Prioritas Utama:*\n"
+            f"• Koordinat: `{top_spot['latitude']:.5f}, {top_spot['longitude']:.5f}`\n"
+            f"• Suhu: {top_spot.get('brightness', 0):.1f} K | FRP: {top_spot.get('frp', 0):.1f} MW\n"
+            f"• Satelit: {top_spot.get('satellite', 'VIIRS')}\n\n"
+            f"🗺️ *Link Google Maps:*\n{maps['google_maps']}\n\n"
+            f"⚠️ *Perhatian:* Segera koordinasikan tim lapangan untuk blokir rembetan api!"
+        )
+        return msg
+
     def send_telegram(self, message: str) -> Tuple[bool, str]:
         """
         Mengirim notifikasi via Telegram Bot API.

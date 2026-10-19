@@ -88,7 +88,10 @@ class Database:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_hotspots_uid ON hotspots(hotspot_uid);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_hotspots_loc ON hotspots(location_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_hotspots_date ON hotspots(scan_date);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_hotspots_date_time ON hotspots(scan_date DESC, scan_time DESC);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_hotspots_frp ON hotspots(frp);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_hotspot_locations_loc ON hotspot_locations(location_id);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_hl_loc_uid ON hotspot_locations(location_id, hotspot_uid);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_alert_logs_dedup ON alert_logs(hotspot_uid, location_id, channel, sent_at);")
             
             conn.commit()
@@ -167,6 +170,68 @@ class Database:
                 print(f"[DB ERROR] Gagal menyimpan hotspot: {e}")
                 return False
 
+    def save_hotspots_batch(self, hotspots: List[Dict[str, Any]]) -> int:
+        """
+        Menyimpan banyak data hotspot sekaligus dalam 1 transaksi database tunggal (batch insert).
+        Menghindari disk lock contention dan mempercepat I/O secara masif.
+        Mengembalikan total asosiasi lokasi hotspot baru yang disimpan.
+        """
+        if not hotspots:
+            return 0
+
+        hotspot_rows = []
+        loc_rows = []
+        for d in hotspots:
+            hotspot_rows.append((
+                d["hotspot_uid"],
+                d["latitude"],
+                d["longitude"],
+                d.get("brightness", 0.0),
+                d["scan_date"],
+                d["scan_time"],
+                d.get("satellite", ""),
+                d.get("instrument", ""),
+                d.get("confidence_code", "nominal"),
+                d.get("confidence_label", "Sedang"),
+                d.get("frp", 0.0),
+                d.get("daynight", "D"),
+                d.get("location_id", ""),
+                d.get("location_name", ""),
+                d.get("distance_km", 0.0),
+            ))
+            loc_rows.append((
+                d["hotspot_uid"],
+                d.get("location_id", ""),
+                d.get("location_name", ""),
+                d.get("distance_km", 0.0)
+            ))
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("BEGIN TRANSACTION")
+                cursor.executemany("""
+                INSERT OR IGNORE INTO hotspots (
+                    hotspot_uid, latitude, longitude, brightness,
+                    scan_date, scan_time, satellite, instrument,
+                    confidence_code, confidence_label, frp, daynight,
+                    location_id, location_name, distance_km
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, hotspot_rows)
+
+                cursor.executemany("""
+                INSERT OR IGNORE INTO hotspot_locations (
+                    hotspot_uid, location_id, location_name, distance_km
+                ) VALUES (?, ?, ?, ?)
+                """, loc_rows)
+                new_associations = cursor.rowcount
+                conn.commit()
+                return new_associations
+            except Exception as e:
+                conn.rollback()
+                print(f"[DB ERROR] Gagal batch insert hotspot: {e}")
+                return 0
+
     def was_alerted_recently(self, hotspot_uid: str, location_id: str, channel: str, cooldown_hours: int = 12) -> bool:
         """
         Mengecek apakah alert untuk hotspot & lokasi & channel tertentu sudah pernah dikirim
@@ -195,9 +260,10 @@ class Database:
             """, (hotspot_uid, location_id, channel, recipient, status, response_info))
             conn.commit()
 
-    def get_recent_hotspots(self, days: int = 7, location_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_recent_hotspots(self, days: int = 7, location_id: Optional[str] = None, min_frp: Optional[float] = None) -> List[Dict[str, Any]]:
         """
         Mengambil daftar hotspot terkini untuk visualisasi di dashboard.
+        Mendukung filter wilayah dan intensitas minimal FRP (Fire Radiative Power).
         """
         cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
         with self.get_connection() as conn:
@@ -211,10 +277,13 @@ class Database:
                 JOIN hotspot_locations hl ON hl.hotspot_uid = h.hotspot_uid
                 WHERE h.scan_date >= ?
             """
-            params = [cutoff_date]
+            params: List[Any] = [cutoff_date]
             if location_id:
                 query += " AND hl.location_id = ?"
                 params.append(location_id)
+            if min_frp is not None and min_frp > 0:
+                query += " AND h.frp >= ?"
+                params.append(min_frp)
             query += " ORDER BY h.scan_date DESC, h.scan_time DESC"
             cursor.execute(query, params)
             return [dict(row) for row in cursor.fetchall()]

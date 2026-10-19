@@ -15,6 +15,7 @@ from typing import Optional, List
 import asyncio
 import threading
 import logging
+import time
 
 from config import get_config
 from database import Database
@@ -38,6 +39,32 @@ notifier = Notifier(cfg)
 monitoring_lock = threading.Lock()
 logger = logging.getLogger("jaga_hutan.api")
 
+class SimpleTTLCache:
+    """Cache in-memory sederhana dengan Time-To-Live untuk mencegah query database berulang."""
+    def __init__(self, ttl_seconds: int = 30):
+        self.ttl = ttl_seconds
+        self._cache = {}
+        self._lock = threading.Lock()
+
+    def get(self, key: str):
+        with self._lock:
+            if key in self._cache:
+                val, expiry = self._cache[key]
+                if time.time() < expiry:
+                    return val
+                del self._cache[key]
+            return None
+
+    def set(self, key: str, value):
+        with self._lock:
+            self._cache[key] = (value, time.time() + self.ttl)
+
+    def clear(self):
+        with self._lock:
+            self._cache.clear()
+
+api_cache = SimpleTTLCache(ttl_seconds=30)
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard(request: Request):
     return templates.TemplateResponse(
@@ -48,7 +75,7 @@ async def serve_dashboard(request: Request):
 
 @app.get("/api/locations")
 async def get_locations():
-    cfg.load_locations()
+    await asyncio.to_thread(cfg.load_locations)
     return [
         {
             "id": loc.id,
@@ -64,13 +91,30 @@ async def get_locations():
     ]
 
 @app.get("/api/hotspots")
-async def get_hotspots(days: int = Query(7, ge=1, le=30), location_id: Optional[str] = None):
-    results = db.get_recent_hotspots(days=days, location_id=location_id)
+async def get_hotspots(
+    days: int = Query(7, ge=1, le=30),
+    location_id: Optional[str] = None,
+    min_frp: Optional[float] = Query(None, ge=0.0)
+):
+    cache_key = f"hotspots_{days}_{location_id}_{min_frp}"
+    cached = api_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    results = await asyncio.to_thread(db.get_recent_hotspots, days, location_id, min_frp)
+    api_cache.set(cache_key, results)
     return results
 
 @app.get("/api/stats")
 async def get_stats():
-    return db.get_stats()
+    cache_key = "stats_summary"
+    cached = api_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    stats = await asyncio.to_thread(db.get_stats)
+    api_cache.set(cache_key, stats)
+    return stats
 
 @app.get("/health/live")
 async def health_live():
@@ -79,7 +123,7 @@ async def health_live():
 @app.get("/health/ready")
 async def health_ready():
     try:
-        db.get_stats()
+        await asyncio.to_thread(db.get_stats)
     except Exception:
         raise HTTPException(status_code=503, detail="Database tidak siap")
     return {
@@ -89,11 +133,15 @@ async def health_ready():
     }
 
 @app.get("/api/export/geojson")
-async def export_geojson(days: int = Query(7, ge=1, le=30), location_id: Optional[str] = None):
+async def export_geojson(
+    days: int = Query(7, ge=1, le=30),
+    location_id: Optional[str] = None,
+    min_frp: Optional[float] = Query(None, ge=0.0)
+):
     """
     Ekspor data hotspot ke format standar GeoJSON (FeatureCollection) untuk QGIS / ArcGIS / Leaflet.
     """
-    hotspots = db.get_recent_hotspots(days=days, location_id=location_id)
+    hotspots = await asyncio.to_thread(db.get_recent_hotspots, days, location_id, min_frp)
     features = []
     for spot in hotspots:
         features.append({
@@ -121,7 +169,11 @@ async def export_geojson(days: int = Query(7, ge=1, le=30), location_id: Optiona
     }
 
 @app.get("/api/export/csv")
-async def export_csv(days: int = Query(7, ge=1, le=30), location_id: Optional[str] = None):
+async def export_csv(
+    days: int = Query(7, ge=1, le=30),
+    location_id: Optional[str] = None,
+    min_frp: Optional[float] = Query(None, ge=0.0)
+):
     """
     Ekspor data hotspot ke format CSV.
     """
@@ -129,7 +181,7 @@ async def export_csv(days: int = Query(7, ge=1, le=30), location_id: Optional[st
     import csv
     from fastapi.responses import Response
 
-    hotspots = db.get_recent_hotspots(days=days, location_id=location_id)
+    hotspots = await asyncio.to_thread(db.get_recent_hotspots, days, location_id, min_frp)
     output = io.StringIO()
     if hotspots:
         writer = csv.DictWriter(output, fieldnames=list(hotspots[0].keys()))
@@ -157,6 +209,7 @@ async def trigger_check(
         raise HTTPException(status_code=409, detail="Siklus monitoring sedang berjalan")
     try:
         await asyncio.to_thread(run_monitoring_cycle, cfg, db, firms, notifier, simulate)
+        api_cache.clear()
         return {"status": "success", "message": "Pengecekan hotspot berhasil dijalankan."}
     except Exception:
         logger.exception("Pengecekan hotspot manual gagal")

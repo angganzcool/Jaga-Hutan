@@ -52,7 +52,7 @@ def _run_monitoring_cycle(cfg, db, firms, notifier, force_simulation: bool = Fal
 
     # 2. Iterasi per area pantau
     for loc in locations:
-        loc_matches = 0
+        loc_records = []
         for spot in raw_hotspots:
             in_radius, dist_km = is_within_radius(
                 spot["latitude"], spot["longitude"],
@@ -67,47 +67,84 @@ def _run_monitoring_cycle(cfg, db, firms, notifier, force_simulation: bool = Fal
             if not is_confidence_acceptable(spot["confidence_code"], loc.min_confidence):
                 continue
 
-            loc_matches += 1
-            total_matches += 1
-
-            # Simpan data ke Database
             spot_record = dict(spot)
             spot_record["location_id"] = loc.id
             spot_record["location_name"] = loc.name
             spot_record["distance_km"] = dist_km
-            db.save_hotspot(spot_record)
+            loc_records.append(spot_record)
 
-            print(f"🔥 HOTSPOT DITEMUKAN di {loc.name} ({dist_km:.2f} km dari pusat, Confidence: {spot['confidence_label']})")
+        if not loc_records:
+            continue
 
-            # 3. Kirim Alert Telegram jika diaktifkan & belum dikirim baru-baru ini
-            if cfg.telegram_enabled and loc.alert_telegram:
-                if not db.was_alerted_recently(spot["hotspot_uid"], loc.id, "telegram", cfg.alert_cooldown_hours):
-                    tg_msg = notifier.format_telegram_message(spot, loc.name, dist_km, loc.radius_km)
+        total_matches += len(loc_records)
+        # Batch insert seluruh titik ke database dalam 1 transaksi
+        db.save_hotspots_batch(loc_records)
+
+        print(f"🔥 {len(loc_records)} HOTSPOT DITEMUKAN di {loc.name}")
+
+        # Saring titik yang belum pernah di-alert (cooldown check)
+        unalerted_tg = [
+            s for s in loc_records
+            if not db.was_alerted_recently(s["hotspot_uid"], loc.id, "telegram", cfg.alert_cooldown_hours)
+        ]
+        unalerted_wa = [
+            s for s in loc_records
+            if not db.was_alerted_recently(s["hotspot_uid"], loc.id, "whatsapp", cfg.alert_cooldown_hours)
+        ]
+
+        # 3. Kirim Alert Telegram
+        if cfg.telegram_enabled and loc.alert_telegram and unalerted_tg:
+            if len(unalerted_tg) > 3:
+                # Mode Kluster / Ringkasan untuk mencegah spam dan rate-limit
+                tg_msg = notifier.format_telegram_cluster_message(unalerted_tg, loc.name, loc.radius_km)
+                success, res_msg = notifier.send_telegram(tg_msg)
+                status_str = "sent" if success else "failed"
+                for s in unalerted_tg:
+                    db.log_alert(s["hotspot_uid"], loc.id, "telegram", cfg.telegram_chat_id, status_str, res_msg)
+                if success:
+                    total_alerts_dispatched += 1
+                    print(f"   [TELEGRAM] ✅ Alert Kluster ({len(unalerted_tg)} titik) terkirim ke chat {cfg.telegram_chat_id}")
+                else:
+                    print(f"   [TELEGRAM] ❌ Gagal kirim kluster: {res_msg}")
+            else:
+                # Kirim individual jika sedikit (<= 3 titik)
+                for s in unalerted_tg:
+                    tg_msg = notifier.format_telegram_message(s, loc.name, s["distance_km"], loc.radius_km)
                     success, res_msg = notifier.send_telegram(tg_msg)
                     status_str = "sent" if success else "failed"
-                    db.log_alert(spot["hotspot_uid"], loc.id, "telegram", cfg.telegram_chat_id, status_str, res_msg)
+                    db.log_alert(s["hotspot_uid"], loc.id, "telegram", cfg.telegram_chat_id, status_str, res_msg)
                     if success:
                         total_alerts_dispatched += 1
-                        print(f"   [TELEGRAM] ✅ Alert terkirim ke chat {cfg.telegram_chat_id}")
+                        print(f"   [TELEGRAM] ✅ Alert terkirim ({s['hotspot_uid']})")
                     else:
                         print(f"   [TELEGRAM] ❌ Gagal kirim: {res_msg}")
-                else:
-                    print(f"   [TELEGRAM] ℹ️ Cooldown aktif: Alert sudah pernah dikirim.")
+                    time.sleep(0.5)
 
-            # 4. Kirim Alert WhatsApp jika diaktifkan & belum dikirim baru-baru ini
-            if cfg.whatsapp_enabled and loc.alert_whatsapp:
-                if not db.was_alerted_recently(spot["hotspot_uid"], loc.id, "whatsapp", cfg.alert_cooldown_hours):
-                    wa_msg = notifier.format_whatsapp_message(spot, loc.name, dist_km, loc.radius_km)
+        # 4. Kirim Alert WhatsApp
+        if cfg.whatsapp_enabled and loc.alert_whatsapp and unalerted_wa:
+            if len(unalerted_wa) > 3:
+                wa_msg = notifier.format_whatsapp_cluster_message(unalerted_wa, loc.name, loc.radius_km)
+                success, res_msg = notifier.send_whatsapp(wa_msg)
+                status_str = "sent" if success else "failed"
+                for s in unalerted_wa:
+                    db.log_alert(s["hotspot_uid"], loc.id, "whatsapp", cfg.whatsapp_target_number, status_str, res_msg)
+                if success:
+                    total_alerts_dispatched += 1
+                    print(f"   [WHATSAPP] ✅ Alert Kluster ({len(unalerted_wa)} titik) terkirim ke {cfg.whatsapp_target_number}")
+                else:
+                    print(f"   [WHATSAPP] ❌ Gagal kirim kluster: {res_msg}")
+            else:
+                for s in unalerted_wa:
+                    wa_msg = notifier.format_whatsapp_message(s, loc.name, s["distance_km"], loc.radius_km)
                     success, res_msg = notifier.send_whatsapp(wa_msg)
                     status_str = "sent" if success else "failed"
-                    db.log_alert(spot["hotspot_uid"], loc.id, "whatsapp", cfg.whatsapp_target_number, status_str, res_msg)
+                    db.log_alert(s["hotspot_uid"], loc.id, "whatsapp", cfg.whatsapp_target_number, status_str, res_msg)
                     if success:
                         total_alerts_dispatched += 1
-                        print(f"   [WHATSAPP] ✅ Alert terkirim ke {cfg.whatsapp_target_number}")
+                        print(f"   [WHATSAPP] ✅ Alert terkirim ({s['hotspot_uid']})")
                     else:
                         print(f"   [WHATSAPP] ❌ Gagal kirim: {res_msg}")
-                else:
-                    print(f"   [WHATSAPP] ℹ️ Cooldown aktif: Alert sudah pernah dikirim.")
+                    time.sleep(0.5)
 
     print(f"🏁 Siklus selesai: {total_matches} titik masuk radius, {total_alerts_dispatched} notifikasi dikirim.")
 
