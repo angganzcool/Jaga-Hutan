@@ -280,41 +280,33 @@
         // Inisialisasi Icons
         lucide.createIcons();
 
-        // 1. Inisialisasi Basemaps (Topografi Terang khas IQAir, Mode Gelap, dan Citra Satelit)
-        const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            subdomains: 'abcd',
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | NASA FIRMS'
+        // Inisialisasi Basemaps 100% Bebas API Key & Tanpa Watermark (Esri Topo, OSM, & Satelit)
+        const esriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: 'Tiles &copy; Esri &mdash; National Geographic, Esri, DeLorme, NAVTEQ | NASA FIRMS'
         });
 
-        const darkMatter = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            subdomains: 'abcd',
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | NASA FIRMS'
+            attribution: '© OpenStreetMap contributors | NASA FIRMS'
         });
 
         const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 18,
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-        });
-
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            attribution: '© OpenStreetMap contributors | NASA FIRMS'
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS | NASA FIRMS'
         });
 
         // Inisialisasi Leaflet Map dengan Canvas Renderer (60 FPS tanpa lag untuk ribuan titik api)
         const map = L.map('map', {
             preferCanvas: true,
             zoomControl: false,
-            layers: [cartoVoyager] // Default ke gaya Topografi Terang IQAir
+            layers: [esriTopo] // Default ke gaya Topografi Terang IQAir (bebas API key)
         }).setView([-0.7893, 118.0000], 5); // Tampilan mencakup seluruh Nusantara (Sabang s/d Merauke)
 
         const baseMaps = {
-            "🌤️ Topografi Terang (Gaya IQAir)": cartoVoyager,
-            "🌙 Mode Gelap (Dark Matter - Kontras Api)": darkMatter,
-            "🛰️ Citra Satelit (ESRI World Imagery)": esriSatellite,
-            "🗺️ Peta Jalan (OpenStreetMap)": osmLayer
+            "🌤️ Topografi Terang (Gaya IQAir)": esriTopo,
+            "🗺️ Peta Jalan Jelas (OpenStreetMap)": osmLayer,
+            "🛰️ Citra Satelit (ESRI World Imagery)": esriSatellite
         };
         L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
         L.control.zoom({ position: 'topright' }).addTo(map);
