@@ -6,8 +6,8 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-from fastapi import FastAPI, Request, Query, Header, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Request, Query, Header, HTTPException, Response
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -24,6 +24,15 @@ from notifier import Notifier
 from main import run_monitoring_cycle
 
 app = FastAPI(title="Jaga Hutan API", version="1.0.0")
+
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    if os.path.exists("static/favicon.svg"):
+        return FileResponse("static/favicon.svg", media_type="image/svg+xml")
+    return Response(status_code=204)
 
 templates = Jinja2Templates(directory="templates")
 
@@ -104,6 +113,19 @@ async def get_hotspots(
     results = await asyncio.to_thread(db.get_recent_hotspots, days, location_id, min_frp)
     api_cache.set(cache_key, results)
     return results
+
+from air_quality import fetch_indonesia_air_quality
+
+@app.get("/api/air-quality")
+async def get_air_quality():
+    cache_key = "air_quality_indonesia"
+    cached = api_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    data = await asyncio.to_thread(fetch_indonesia_air_quality)
+    api_cache.set(cache_key, data)
+    return data
 
 @app.get("/api/stats")
 async def get_stats():

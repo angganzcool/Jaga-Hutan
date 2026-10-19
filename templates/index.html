@@ -4,11 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jaga Hutan - Peta Monitoring & Peringatan Dini Hotspot</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Heatmap Plugin (IQAir Smoke & Heat Haze) -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -26,16 +31,19 @@
 <body class="bg-slate-900 text-slate-100 font-sans flex flex-col h-screen overflow-hidden">
 
     <!-- Header Navbar -->
-    <header class="bg-slate-950 border-b border-slate-800 px-6 py-3.5 flex items-center justify-between z-20">
+    <header class="bg-slate-950 border-b border-slate-800 px-4 md:px-6 py-3 flex items-center justify-between z-20">
         <div class="flex items-center space-x-3">
+            <button onclick="toggleMobileSidebar()" class="md:hidden bg-slate-900 border border-slate-800 text-slate-300 p-2 rounded-lg hover:border-emerald-500/50 transition" title="Buka Menu Panel">
+                <i data-lucide="menu" class="w-5 h-5 text-emerald-400"></i>
+            </button>
             <div class="p-2 bg-emerald-600/20 text-emerald-400 rounded-lg border border-emerald-500/30">
                 <i data-lucide="trees" class="w-6 h-6"></i>
             </div>
             <div>
-                <h1 class="text-lg font-bold text-white flex items-center gap-2">
-                    Jaga Hutan <span class="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">Early Warning System</span>
+                <h1 class="text-base md:text-lg font-bold text-white flex items-center gap-2">
+                    Jaga Hutan <span class="text-[10px] md:text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">Early Warning System</span>
                 </h1>
-                <p class="text-xs text-slate-400">Monitoring Karhutla & Satelit NASA FIRMS</p>
+                <p class="text-[11px] md:text-xs text-slate-400">Monitoring Karhutla & Satelit NASA FIRMS</p>
             </div>
         </div>
 
@@ -87,10 +95,18 @@
 
     <!-- Main Container: Sidebar + Map -->
     <div class="flex-1 flex overflow-hidden relative">
+        <!-- Mobile Sidebar Backdrop Overlay -->
+        <div id="sidebar-backdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-30 hidden md:hidden transition-opacity"></div>
         
         <!-- Sidebar Controls -->
-        <aside class="w-80 bg-slate-950/95 backdrop-blur border-r border-slate-800 p-4 flex flex-col justify-between overflow-y-auto z-20 shadow-xl">
+        <aside id="sidebar" class="w-80 max-w-[85vw] bg-slate-950/95 backdrop-blur border-r border-slate-800 p-4 flex flex-col justify-between overflow-y-auto z-40 shadow-2xl absolute md:relative inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
             <div class="space-y-4">
+                <div class="flex items-center justify-between md:hidden pb-2 border-b border-slate-800">
+                    <span class="text-xs font-bold text-slate-200">Panel Kontrol & Filter</span>
+                    <button onclick="toggleMobileSidebar()" class="text-slate-400 hover:text-white p-1">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-300 block mb-1.5">Filter Wilayah Pantau</label>
                     <select id="filter-location" onchange="loadHotspots()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
@@ -178,7 +194,83 @@
         </aside>
 
         <!-- Leaflet Map Container -->
-        <main class="flex-1 relative">
+        <main class="flex-1 relative h-full">
+            <!-- Floating Live Status Badge over Map -->
+            <div id="floating-status" class="absolute top-4 left-4 z-[400] bg-slate-950/90 backdrop-blur-md border border-slate-800/90 px-3.5 py-2 rounded-xl shadow-2xl flex items-center gap-3 pointer-events-auto">
+                <span class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                </span>
+                <div class="text-left">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-white text-xs tracking-wide" id="live-hotspot-count">Memuat hotspot...</span>
+                        <span class="text-[9px] uppercase tracking-wider bg-rose-500/20 text-rose-300 font-semibold px-1.5 py-0.2 rounded border border-rose-500/30">Live</span>
+                    </div>
+                    <span class="text-slate-400 text-[10px] block" id="live-hotspot-subtitle">Satelit NASA FIRMS Terkini</span>
+                </div>
+            </div>
+
+            <!-- Floating Quick Actions (Locate Me & Fullscreen) -->
+            <div class="absolute top-4 right-14 z-[400] flex items-center gap-2 pointer-events-auto">
+                <button onclick="locateUserPosition()" title="Pusatkan ke Posisi Saya" class="bg-slate-950/90 hover:bg-slate-900 backdrop-blur-md border border-slate-800 text-slate-200 px-2.5 py-1.5 rounded-lg shadow-xl text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="crosshair" class="w-3.5 h-3.5 text-emerald-400"></i>
+                    <span class="hidden sm:inline">Lokasi Saya</span>
+                </button>
+                <button onclick="toggleMapFullscreen()" title="Layar Penuh (Command Center)" class="bg-slate-950/90 hover:bg-slate-900 backdrop-blur-md border border-slate-800 text-slate-200 px-2.5 py-1.5 rounded-lg shadow-xl text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="maximize" class="w-3.5 h-3.5 text-sky-400" id="fullscreen-icon"></i>
+                    <span class="hidden sm:inline">Layar Penuh</span>
+                </button>
+            </div>
+
+            <!-- IQAir-Style Floating Layer Selector (Right Overlay) -->
+            <div class="absolute top-16 right-4 z-[400] flex flex-col gap-2 pointer-events-auto items-end">
+                <button id="btn-toggle-aqi" onclick="toggleLayer('aqi')" class="bg-white/95 text-slate-800 hover:bg-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg border border-slate-200 flex items-center gap-2 transition backdrop-blur-md">
+                    <span class="w-5 h-5 rounded-full bg-sky-500 text-white flex items-center justify-center">
+                        <i data-lucide="map-pin" class="w-3 h-3"></i>
+                    </span>
+                    <span>Stasiun Kualitas Udara</span>
+                    <i data-lucide="check" class="w-3.5 h-3.5 text-sky-600 font-bold" id="check-aqi"></i>
+                </button>
+
+                <button id="btn-toggle-fire" onclick="toggleLayer('fire')" class="bg-white/95 text-slate-800 hover:bg-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg border border-slate-200 flex items-center gap-2 transition backdrop-blur-md">
+                    <span class="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center">
+                        <i data-lucide="flame" class="w-3 h-3"></i>
+                    </span>
+                    <span>Titik Kebakaran (NASA FIRMS)</span>
+                    <i data-lucide="check" class="w-3.5 h-3.5 text-rose-600 font-bold" id="check-fire"></i>
+                </button>
+
+                <button id="btn-toggle-smoke" onclick="toggleLayer('smoke')" class="bg-white/95 text-slate-800 hover:bg-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg border border-slate-200 flex items-center gap-2 transition backdrop-blur-md">
+                    <span class="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center">
+                        <i data-lucide="cloud-fog" class="w-3 h-3"></i>
+                    </span>
+                    <span>Asap & Heatmap Karhutla</span>
+                    <i data-lucide="check" class="w-3.5 h-3.5 text-amber-600 font-bold" id="check-smoke"></i>
+                </button>
+
+                <button id="btn-toggle-wind" onclick="toggleLayer('wind')" class="bg-white/95 text-slate-800 hover:bg-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg border border-slate-200 flex items-center gap-2 transition backdrop-blur-md">
+                    <span class="w-5 h-5 rounded-full bg-teal-500 text-white flex items-center justify-center">
+                        <i data-lucide="wind" class="w-3 h-3"></i>
+                    </span>
+                    <span>Aliran Angin</span>
+                    <i data-lucide="check" class="w-3.5 h-3.5 text-teal-600 font-bold" id="check-wind"></i>
+                </button>
+            </div>
+
+            <!-- IQAir-Style Bottom AQI Spectrum Legend Bar -->
+            <div class="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-[400] max-w-[95vw] pointer-events-auto">
+                <div class="bg-slate-950/90 backdrop-blur-md border border-slate-700/80 rounded-xl p-2 shadow-2xl flex flex-col items-center">
+                    <div class="flex items-center text-[10px] md:text-xs font-semibold text-white overflow-x-auto rounded-lg overflow-hidden border border-slate-700/60 shadow">
+                        <div class="bg-[#84cc16] text-slate-950 px-2.5 py-1 text-center whitespace-nowrap font-bold">Baik (0-50)</div>
+                        <div class="bg-[#eab308] text-slate-950 px-2.5 py-1 text-center whitespace-nowrap font-bold">Sedang (51-100)</div>
+                        <div class="bg-[#f97316] text-white px-2.5 py-1 text-center whitespace-nowrap font-bold">Sensitif (101-150)</div>
+                        <div class="bg-[#ef4444] text-white px-2.5 py-1 text-center whitespace-nowrap font-bold">Tidak Sehat (151-200)</div>
+                        <div class="bg-[#a855f7] text-white px-2.5 py-1 text-center whitespace-nowrap font-bold">Sangat Tidak Sehat (201-300)</div>
+                        <div class="bg-[#7f1d1d] text-white px-2.5 py-1 text-center whitespace-nowrap font-bold">Berbahaya (300+)</div>
+                    </div>
+                </div>
+            </div>
+
             <div id="map"></div>
         </main>
     </div>
@@ -188,10 +280,17 @@
         // Inisialisasi Icons
         lucide.createIcons();
 
-        // Inisialisasi Tile Layers (Peta Jalan & Citra Satelit)
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            attribution: '© OpenStreetMap contributors | NASA FIRMS'
+        // 1. Inisialisasi Basemaps (Topografi Terang khas IQAir, Mode Gelap, dan Citra Satelit)
+        const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            subdomains: 'abcd',
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | NASA FIRMS'
+        });
+
+        const darkMatter = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            subdomains: 'abcd',
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | NASA FIRMS'
         });
 
         const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -199,28 +298,182 @@
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
         });
 
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors | NASA FIRMS'
+        });
+
         // Inisialisasi Leaflet Map dengan Canvas Renderer (60 FPS tanpa lag untuk ribuan titik api)
         const map = L.map('map', {
             preferCanvas: true,
             zoomControl: false,
-            layers: [osmLayer]
+            layers: [cartoVoyager] // Default ke gaya Topografi Terang IQAir
         }).setView([-0.7893, 118.0000], 5); // Tampilan mencakup seluruh Nusantara (Sabang s/d Merauke)
 
         const baseMaps = {
-            "🗺️ Peta Jalan (OSM)": osmLayer,
-            "🛰️ Citra Satelit (ESRI)": esriSatellite
+            "🌤️ Topografi Terang (Gaya IQAir)": cartoVoyager,
+            "🌙 Mode Gelap (Dark Matter - Kontras Api)": darkMatter,
+            "🛰️ Citra Satelit (ESRI World Imagery)": esriSatellite,
+            "🗺️ Peta Jalan (OpenStreetMap)": osmLayer
         };
         L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
         L.control.zoom({ position: 'topright' }).addTo(map);
+        L.control.scale({ imperial: false, position: 'bottomright' }).addTo(map);
 
         let locationsData = [];
         let locationCircles = [];
-        let hotspotMarkers = [];
+        let airQualityData = [];
+
+        // Layer Groups untuk Toggle gaya IQAir
+        const layerGroupFire = L.layerGroup().addTo(map);
+        const layerGroupAqi = L.layerGroup().addTo(map);
+        let heatLayerSmoke = null;
+        let windOverlay = null;
+
+        const layerStates = {
+            aqi: true,
+            fire: true,
+            smoke: true,
+            wind: true
+        };
 
         function escapeHtml(value) {
             const element = document.createElement('div');
             element.textContent = String(value ?? '');
             return element.innerHTML;
+        }
+
+        // Toggle Layer Gaya Kapsul IQAir
+        function toggleLayer(layerName) {
+            layerStates[layerName] = !layerStates[layerName];
+            const isVisible = layerStates[layerName];
+            const checkIcon = document.getElementById(`check-${layerName}`);
+            const btn = document.getElementById(`btn-toggle-${layerName}`);
+
+            if (isVisible) {
+                if (checkIcon) checkIcon.classList.remove('hidden');
+                if (btn) {
+                    btn.classList.add('bg-white/95', 'text-slate-800');
+                    btn.classList.remove('bg-slate-900/80', 'text-slate-400', 'border-slate-700');
+                }
+            } else {
+                if (checkIcon) checkIcon.classList.add('hidden');
+                if (btn) {
+                    btn.classList.remove('bg-white/95', 'text-slate-800');
+                    btn.classList.add('bg-slate-900/80', 'text-slate-400', 'border-slate-700');
+                }
+            }
+
+            if (layerName === 'aqi') {
+                if (isVisible) map.addLayer(layerGroupAqi);
+                else map.removeLayer(layerGroupAqi);
+            } else if (layerName === 'fire') {
+                if (isVisible) map.addLayer(layerGroupFire);
+                else map.removeLayer(layerGroupFire);
+            } else if (layerName === 'smoke') {
+                if (heatLayerSmoke) {
+                    if (isVisible) map.addLayer(heatLayerSmoke);
+                    else map.removeLayer(heatLayerSmoke);
+                }
+            } else if (layerName === 'wind') {
+                if (windOverlay) {
+                    windOverlay.toggle(isVisible);
+                }
+            }
+        }
+
+        // Animasi Aliran Angin (Wind Streamlines) 60 FPS di atas Leaflet
+        class WindAnimationOverlay {
+            constructor(leafletMap) {
+                this.map = leafletMap;
+                this.canvas = document.createElement('canvas');
+                this.canvas.style.position = 'absolute';
+                this.canvas.style.top = '0';
+                this.canvas.style.left = '0';
+                this.canvas.style.width = '100%';
+                this.canvas.style.height = '100%';
+                this.canvas.style.pointerEvents = 'none';
+                this.canvas.style.zIndex = '350';
+                this.ctx = this.canvas.getContext('2d');
+                this.map.getPanes().overlayPane.appendChild(this.canvas);
+                this.particles = [];
+                this.animId = null;
+                this.active = true;
+
+                this.resize();
+                this.initParticles();
+                this.map.on('move', () => this.resize());
+                this.map.on('zoom', () => this.resize());
+                this.map.on('resize', () => this.resize());
+                this.animate = this.animate.bind(this);
+                this.start();
+            }
+
+            resize() {
+                const size = this.map.getSize();
+                this.canvas.width = size.x;
+                this.canvas.height = size.y;
+            }
+
+            initParticles() {
+                const count = 130;
+                this.particles = [];
+                for (let i = 0; i < count; i++) {
+                    this.particles.push({
+                        x: Math.random() * (this.canvas.width || window.innerWidth),
+                        y: Math.random() * (this.canvas.height || window.innerHeight),
+                        length: 14 + Math.random() * 18,
+                        speed: 1.2 + Math.random() * 1.6,
+                        opacity: 0.25 + Math.random() * 0.45
+                    });
+                }
+            }
+
+            start() {
+                if (!this.animId && this.active) {
+                    this.animate();
+                }
+            }
+
+            stop() {
+                if (this.animId) {
+                    cancelAnimationFrame(this.animId);
+                    this.animId = null;
+                }
+                if (this.ctx) {
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+            }
+
+            toggle(show) {
+                this.active = show;
+                this.canvas.style.display = show ? 'block' : 'none';
+                if (show) this.start();
+                else this.stop();
+            }
+
+            animate() {
+                if (!this.active) return;
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.ctx.lineWidth = 1.3;
+
+                for (let p of this.particles) {
+                    // Arah angin monsun bertiup ke arah Barat-Barat Laut
+                    p.x -= p.speed * 1.3;
+                    p.y -= p.speed * 0.45;
+
+                    if (p.x < 0) p.x = this.canvas.width;
+                    if (p.y < 0) p.y = this.canvas.height;
+
+                    this.ctx.strokeStyle = `rgba(255, 255, 255, ${p.opacity})`;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(p.x, p.y);
+                    this.ctx.lineTo(p.x + p.length, p.y + p.length * 0.35);
+                    this.ctx.stroke();
+                }
+
+                this.animId = requestAnimationFrame(this.animate);
+            }
         }
 
         async function fetchHealth() {
@@ -263,13 +516,11 @@
                 locationCircles = [];
 
                 locationsData.forEach(loc => {
-                    // Option
                     const opt = document.createElement('option');
                     opt.value = loc.id;
                     opt.innerText = loc.name;
                     selectEl.appendChild(opt);
 
-                    // List item in sidebar
                     const item = document.createElement('div');
                     item.className = 'p-2 bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded cursor-pointer transition text-xs';
                     item.innerHTML = `
@@ -281,7 +532,6 @@
                     };
                     listEl.appendChild(item);
 
-                    // Draw radius circle on map
                     const circle = L.circle([loc.latitude, loc.longitude], {
                         color: '#10b981',
                         fillColor: '#10b981',
@@ -306,7 +556,72 @@
             }
         }
 
-        // Load Hotspots
+        // 2. Load Stasiun Kualitas Udara (AQI Gaya IQAir)
+        async function loadAirQuality() {
+            try {
+                const res = await fetch('/api/air-quality');
+                airQualityData = await res.json();
+
+                layerGroupAqi.clearLayers();
+
+                airQualityData.forEach(station => {
+                    const aqiVal = station.aqi;
+                    const aqiIcon = L.divIcon({
+                        className: 'iqair-aqi-icon',
+                        html: `
+                            <div style="background-color: ${station.color}; color: ${station.textColor};" class="w-8 h-8 rounded-full flex items-center justify-center font-black text-[11px] shadow-lg border-2 border-white/90 hover:scale-125 transition-transform cursor-pointer">
+                                <span>${aqiVal}</span>
+                            </div>
+                        `,
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16]
+                    });
+
+                    const marker = L.marker([station.latitude, station.longitude], {
+                        icon: aqiIcon,
+                        title: `${station.city}: AQI ${aqiVal} (${station.level})`
+                    });
+
+                    marker.bindPopup(`
+                        <div class="text-slate-900 font-sans text-xs p-1 min-w-[210px]">
+                            <div class="flex items-center justify-between font-bold text-sm">
+                                <span class="text-slate-900">${escapeHtml(station.city)}</span>
+                                <span style="background-color: ${station.color}; color: ${station.textColor};" class="px-2 py-0.5 rounded text-[11px] font-black">
+                                    AQI ${aqiVal}
+                                </span>
+                            </div>
+                            <div class="text-[10px] text-slate-500 font-medium">${escapeHtml(station.province)}</div>
+                            <hr class="my-1.5 border-slate-200">
+                            <div class="font-bold text-xs" style="color: ${station.color === '#84cc16' ? '#65a30d' : (station.color === '#eab308' ? '#ca8a04' : station.color)}">
+                                ${escapeHtml(station.level)}
+                            </div>
+                            <p class="text-[11px] text-slate-600 mt-0.5 leading-snug">${escapeHtml(station.desc)}</p>
+                            
+                            <div class="mt-2 pt-1 border-t border-slate-200 grid grid-cols-2 gap-2 text-center text-[10px]">
+                                <div class="bg-slate-100 p-1 rounded">
+                                    <span class="text-slate-500 block">PM2.5</span>
+                                    <span class="font-bold text-slate-800">${station.pm2_5} µg/m³</span>
+                                </div>
+                                <div class="bg-slate-100 p-1 rounded">
+                                    <span class="text-slate-500 block">PM10</span>
+                                    <span class="font-bold text-slate-800">${station.pm10} µg/m³</span>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+
+                    layerGroupAqi.addLayer(marker);
+                });
+
+                if (layerStates.aqi && !map.hasLayer(layerGroupAqi)) {
+                    map.addLayer(layerGroupAqi);
+                }
+            } catch (err) {
+                console.error("Gagal load air quality", err);
+            }
+        }
+
+        // 3. Load Hotspots & Heatmap Karhutla (Gaya IQAir)
         async function loadHotspots() {
             const locId = document.getElementById('filter-location').value;
             const days = document.getElementById('filter-days').value;
@@ -320,53 +635,170 @@
                 const res = await fetch(url);
                 const hotspots = await res.json();
 
-                // Clear previous markers
-                hotspotMarkers.forEach(m => map.removeLayer(m));
-                hotspotMarkers = [];
+                // Clear previous markers & heat
+                layerGroupFire.clearLayers();
+                if (heatLayerSmoke) {
+                    map.removeLayer(heatLayerSmoke);
+                    heatLayerSmoke = null;
+                }
+
+                // Update Live Counter Pill
+                const liveCountEl = document.getElementById('live-hotspot-count');
+                const liveSubEl = document.getElementById('live-hotspot-subtitle');
+                if (liveCountEl) liveCountEl.innerText = `${hotspots.length} Titik Api Aktif`;
+                if (liveSubEl) {
+                    const selLocText = document.getElementById('filter-location').selectedOptions[0]?.text || 'Seluruh Indonesia';
+                    liveSubEl.innerText = `${selLocText} • NASA FIRMS`;
+                }
+
+                const heatPoints = [];
 
                 hotspots.forEach(spot => {
-                    let color = '#f59e0b'; // nominal
-                    if (spot.confidence_code === 'high' || spot.frp > 30) color = '#f43f5e'; // high
-                    else if (spot.confidence_code === 'low') color = '#eab308'; // low
-
-                    const marker = L.circleMarker([spot.latitude, spot.longitude], {
-                        radius: 7,
-                        fillColor: color,
-                        color: '#ffffff',
-                        weight: 1.5,
-                        opacity: 1,
-                        fillOpacity: 0.85
-                    }).addTo(map);
+                    const frpVal = Number(spot.frp) || 0;
+                    const heatIntensity = Math.min(1.0, Math.max(0.35, frpVal / 45));
+                    heatPoints.push([spot.latitude, spot.longitude, heatIntensity]);
 
                     const gmapsUrl = `https://www.google.com/maps?q=${spot.latitude},${spot.longitude}`;
 
+                    const frpPercent = Math.min(100, Math.max(8, Math.round((frpVal / 60) * 100)));
+                    let frpBarColor = 'bg-amber-400';
+                    let frpStatusBadge = 'Rendah / Sedang';
+                    if (frpVal >= 50) {
+                        frpBarColor = 'bg-rose-600';
+                        frpStatusBadge = 'Ekstrem / Bahaya Tinggi';
+                    } else if (frpVal >= 25) {
+                        frpBarColor = 'bg-orange-500';
+                        frpStatusBadge = 'Signifikan / Hebat';
+                    }
+
+                    // Ikon Api Merah Bundar Khas IQAir
+                    const fireIcon = L.divIcon({
+                        className: 'iqair-fire-icon',
+                        html: `
+                            <div class="relative flex items-center justify-center">
+                                <div class="w-6 h-6 ${frpVal >= 35 ? 'bg-rose-600 ring-4 ring-rose-500/50 animate-pulse' : (frpVal >= 15 ? 'bg-orange-500 ring-2 ring-orange-400/40' : 'bg-amber-500')} rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-pointer hover:scale-125 transition-transform">
+                                    <svg class="w-3.5 h-3.5 text-white fill-white" viewBox="0 0 24 24"><path d="M12 2c0 0-4 5-4 9 0 2.2 1.8 4 4 4s4-1.8 4-4c0-4-4-9-4-9zm0 15c-3.3 0-6-2.7-6-6 0-3.3 3.6-7.8 5-9.3.4-.4 1-.4 1.4 0 1.4 1.5 5 6 5 9.3 0 3.3-2.7 6-6 6z"/></svg>
+                                </div>
+                            </div>
+                        `,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    });
+
+                    const marker = L.marker([spot.latitude, spot.longitude], { icon: fireIcon });
+
                     marker.bindPopup(`
-                        <div class="text-slate-900 font-sans text-xs p-1">
-                            <div class="flex items-center gap-1.5 font-bold text-sm ${color === '#f43f5e' ? 'text-rose-600' : 'text-amber-600'}">
-                                <span>🔥 Hotspot Terdeteksi</span>
+                        <div class="text-slate-900 font-sans text-xs p-1 min-w-[210px]">
+                            <div class="flex items-center justify-between font-bold text-sm text-rose-600">
+                                <span class="flex items-center gap-1">🔥 Titik Api Terdeteksi</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">${escapeHtml(spot.satellite)}</span>
                             </div>
                             <hr class="my-1.5 border-slate-200">
-                            <div><b>Area:</b> ${escapeHtml(spot.location_name || 'Di Luar Area Pantau')}</div>
-                            <div><b>Jarak Titik:</b> ${spot.distance_km ? spot.distance_km.toFixed(2) + ' km' : '-'}</div>
-                            <div><b>Waktu:</b> ${spot.scan_date} ${spot.scan_time} UTC</div>
-                            <div><b>Confidence:</b> ${escapeHtml(spot.confidence_label)}</div>
-                            <div><b>Brightness:</b> ${spot.brightness ? spot.brightness.toFixed(1) + ' K' : '-'}</div>
-                            <div><b>FRP:</b> ${spot.frp ? spot.frp.toFixed(1) + ' MW' : '-'}</div>
-                            <div><b>Satelit:</b> ${escapeHtml(spot.satellite)} (${escapeHtml(spot.instrument || '-')})</div>
+                            <div class="space-y-0.5 text-slate-700">
+                                <div><b>Area:</b> ${escapeHtml(spot.location_name || 'Wilayah Teritorial Indonesia')}</div>
+                                <div><b>Jarak Posko:</b> ${spot.distance_km ? spot.distance_km.toFixed(2) + ' km' : '-'}</div>
+                                <div><b>Waktu:</b> ${spot.scan_date} ${spot.scan_time} UTC</div>
+                                <div><b>Confidence:</b> ${escapeHtml(spot.confidence_label)}</div>
+                                <div><b>Brightness:</b> ${spot.brightness ? spot.brightness.toFixed(1) + ' K' : '-'}</div>
+                            </div>
+
+                            <!-- FRP Visual Energy Bar -->
+                            <div class="mt-2 mb-1 bg-slate-100 p-2 rounded border border-slate-200">
+                                <div class="flex justify-between items-center text-[10px] text-slate-600 mb-1">
+                                    <span>Energi Radiasi Api (FRP)</span>
+                                    <span class="font-bold text-slate-900">${frpVal ? frpVal.toFixed(1) + ' MW' : '0 MW'}</span>
+                                </div>
+                                <div class="w-full bg-slate-300 h-2 rounded-full overflow-hidden">
+                                    <div class="${frpBarColor} h-full rounded-full transition-all" style="width: ${frpPercent}%"></div>
+                                </div>
+                                <div class="text-[9px] text-right font-medium text-slate-500 mt-0.5">${frpStatusBadge}</div>
+                            </div>
+
                             <div class="mt-2 pt-1 border-t border-slate-200 text-center">
-                                <a href="${gmapsUrl}" target="_blank" class="inline-block bg-slate-900 text-white font-medium px-2.5 py-1 rounded text-[11px] hover:bg-slate-800">
-                                    Buka Google Maps ↗
+                                <a href="${gmapsUrl}" target="_blank" class="inline-block w-full bg-slate-900 text-white font-medium px-2.5 py-1.5 rounded text-[11px] hover:bg-slate-800 transition">
+                                    Buka Navigasi Google Maps ↗
                                 </a>
                             </div>
                         </div>
                     `);
 
-                    hotspotMarkers.push(marker);
+                    layerGroupFire.addLayer(marker);
                 });
+
+                if (layerStates.fire && !map.hasLayer(layerGroupFire)) {
+                    map.addLayer(layerGroupFire);
+                }
+
+                // Inisialisasi Heatmap Asap Karhutla (Palet Khas IQAir)
+                if (heatPoints.length > 0 && typeof L.heatLayer === 'function') {
+                    heatLayerSmoke = L.heatLayer(heatPoints, {
+                        radius: 35,
+                        blur: 24,
+                        maxZoom: 10,
+                        max: 1.0,
+                        gradient: {
+                            0.2: '#84cc16', // Hijau
+                            0.4: '#eab308', // Kuning
+                            0.6: '#f97316', // Oranye
+                            0.8: '#ef4444', // Merah
+                            0.92: '#a855f7', // Ungu
+                            1.0: '#7f1d1d'  // Marun Pekat
+                        }
+                    });
+
+                    if (layerStates.smoke) {
+                        map.addLayer(heatLayerSmoke);
+                    }
+                }
 
                 fetchStats();
             } catch (err) {
                 console.error("Gagal load hotspot", err);
+            }
+        }
+
+        // Toggle Sidebar Mobile Drawer
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            const isClosed = sidebar.classList.contains('-translate-x-full');
+            if (isClosed) {
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            }
+        }
+
+        // Locate User GPS Position
+        function locateUserPosition() {
+            if (!navigator.geolocation) {
+                alert("Geolokasi tidak didukung oleh browser Anda.");
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    map.flyTo([lat, lon], 11);
+                    L.popup()
+                        .setLatLng([lat, lon])
+                        .setContent('<div class="text-xs font-semibold p-1 text-slate-800">📍 Posisi Anda Saat Ini</div>')
+                        .openOn(map);
+                },
+                err => {
+                    alert("Tidak dapat mendeteksi lokasi: " + err.message);
+                }
+            );
+        }
+
+        // Fullscreen Toggle (Command Center Mode)
+        function toggleMapFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => alert("Gagal fullscreen: " + err.message));
+            } else {
+                document.exitFullscreen();
             }
         }
 
@@ -428,8 +860,10 @@
 
         // Init App
         window.addEventListener('DOMContentLoaded', async () => {
+            windOverlay = new WindAnimationOverlay(map);
             await loadLocations();
             await fetchHealth();
+            await loadAirQuality();
             await loadHotspots();
             await fetchStats();
         });

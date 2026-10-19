@@ -196,6 +196,15 @@ class TestJagaHutan(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIsInstance(res.json(), list)
 
+        # Test favicon
+        fav = client.get("/favicon.ico")
+        self.assertEqual(fav.status_code, 200)
+
+        # Test air quality endpoint
+        aq = client.get("/api/air-quality")
+        self.assertEqual(aq.status_code, 200)
+        self.assertIsInstance(aq.json(), list)
+
     def test_national_hotspots_without_posko(self):
         national_spot = {
             "hotspot_uid": "national_spot_papua",
