@@ -132,7 +132,7 @@
                     </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-300 block mb-1.5">Filter Wilayah Pantau</label>
-                    <select id="filter-location" onchange="loadHotspots()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                    <select id="filter-location" onchange="onLocationFilterChange()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
                         <option value="">Seluruh Indonesia (Semua Wilayah)</option>
                     </select>
                 </div>
@@ -239,8 +239,12 @@
                 </div>
             </div>
 
-            <!-- Floating Quick Actions (Locate Me & Fullscreen) -->
+            <!-- Floating Quick Actions (Nusantara View, Locate Me & Fullscreen) -->
             <div class="absolute top-4 right-14 z-[400] flex items-center gap-2 pointer-events-auto">
+                <button onclick="resetIndonesiaView()" title="Pusatkan Seluruh Indonesia (Sabang - Merauke)" class="bg-slate-950/90 hover:bg-slate-900 backdrop-blur-md border border-slate-800 text-slate-200 px-2.5 py-1.5 rounded-lg shadow-xl text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="map" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span class="hidden sm:inline">Nusantara</span>
+                </button>
                 <button onclick="locateUserPosition()" title="Pusatkan ke Posisi Saya" class="bg-slate-950/90 hover:bg-slate-900 backdrop-blur-md border border-slate-800 text-slate-200 px-2.5 py-1.5 rounded-lg shadow-xl text-xs flex items-center gap-1.5 transition">
                     <i data-lucide="crosshair" class="w-3.5 h-3.5 text-emerald-400"></i>
                     <span class="hidden sm:inline">Lokasi Saya</span>
@@ -325,12 +329,17 @@
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS | NASA FIRMS'
         });
 
+        const INDONESIA_BOUNDS = [
+            [-11.2, 94.8],  // Samudera Hindia / Rote (Barat Daya)
+            [6.2, 141.2]    // Miangas / Merauke & Jayapura (Timur Laut)
+        ];
+
         // Inisialisasi Leaflet Map dengan Canvas Renderer (60 FPS tanpa lag untuk ribuan titik api)
         const map = L.map('map', {
             preferCanvas: true,
             zoomControl: false,
             layers: [esriTopo] // Default ke gaya Topografi Terang IQAir (bebas API key)
-        }).setView([-0.7893, 118.0000], 5); // Tampilan mencakup seluruh Nusantara (Sabang s/d Merauke)
+        }).fitBounds(INDONESIA_BOUNDS, { padding: [15, 15] }); // Tampilan mencakup seluruh Nusantara (Sabang s/d Merauke)
 
         const baseMaps = {
             "🌤️ Topografi Terang (Gaya IQAir)": esriTopo,
@@ -403,11 +412,12 @@
             }
         }
 
-        // Animasi Aliran Angin (Wind Streamlines) 60 FPS di atas Leaflet
+        // Animasi Aliran Angin (Wind Streamlines) 60 FPS Kontras Tinggi di atas Leaflet
         class WindAnimationOverlay {
             constructor(leafletMap) {
                 this.map = leafletMap;
                 this.canvas = document.createElement('canvas');
+                this.canvas.id = 'wind-canvas';
                 this.canvas.style.position = 'absolute';
                 this.canvas.style.top = '0';
                 this.canvas.style.left = '0';
@@ -416,36 +426,48 @@
                 this.canvas.style.pointerEvents = 'none';
                 this.canvas.style.zIndex = '350';
                 this.ctx = this.canvas.getContext('2d');
-                this.map.getPanes().overlayPane.appendChild(this.canvas);
+                // Tempelkan canvas langsung ke kontainer peta Leaflet agar posisinya absolut terhadap layar
+                this.map.getContainer().appendChild(this.canvas);
                 this.particles = [];
                 this.animId = null;
                 this.active = true;
 
                 this.resize();
                 this.initParticles();
-                this.map.on('move', () => this.resize());
-                this.map.on('zoom', () => this.resize());
-                this.map.on('resize', () => this.resize());
+
+                this.map.on('resize', () => {
+                    this.resize();
+                    this.initParticles();
+                });
+                window.addEventListener('resize', () => {
+                    this.resize();
+                });
+
                 this.animate = this.animate.bind(this);
                 this.start();
             }
 
             resize() {
-                const size = this.map.getSize();
-                this.canvas.width = size.x;
-                this.canvas.height = size.y;
+                const container = this.map.getContainer();
+                const width = container.clientWidth || window.innerWidth;
+                const height = container.clientHeight || window.innerHeight;
+                this.canvas.width = width;
+                this.canvas.height = height;
             }
 
             initParticles() {
-                const count = 130;
+                const count = 350; // Jumlah partikel diperbanyak agar aliran monsun terlihat jelas di seluruh Nusantara
                 this.particles = [];
+                const w = this.canvas.width || window.innerWidth;
+                const h = this.canvas.height || window.innerHeight;
                 for (let i = 0; i < count; i++) {
                     this.particles.push({
-                        x: Math.random() * (this.canvas.width || window.innerWidth),
-                        y: Math.random() * (this.canvas.height || window.innerHeight),
-                        length: 14 + Math.random() * 18,
-                        speed: 1.2 + Math.random() * 1.6,
-                        opacity: 0.25 + Math.random() * 0.45
+                        x: Math.random() * w,
+                        y: Math.random() * h,
+                        length: 16 + Math.random() * 24,
+                        speed: 1.3 + Math.random() * 1.7,
+                        opacity: 0.35 + Math.random() * 0.55,
+                        tailAngle: 0.28 + (Math.random() - 0.5) * 0.08
                     });
                 }
             }
@@ -476,20 +498,36 @@
             animate() {
                 if (!this.active) return;
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                this.ctx.lineWidth = 1.3;
+
+                const w = this.canvas.width;
+                const h = this.canvas.height;
 
                 for (let p of this.particles) {
-                    // Arah angin monsun bertiup ke arah Barat-Barat Laut
-                    p.x -= p.speed * 1.3;
-                    p.y -= p.speed * 0.45;
+                    // Arah angin monsun tropis: bertiup dari Timur ke Barat / Barat-Barat Laut
+                    p.x -= p.speed * 1.5;
+                    p.y -= p.speed * 0.42;
 
-                    if (p.x < 0) p.x = this.canvas.width;
-                    if (p.y < 0) p.y = this.canvas.height;
+                    if (p.x < -30) {
+                        p.x = w + Math.random() * 20;
+                        p.y = Math.random() * h;
+                    }
+                    if (p.y < -30) {
+                        p.y = h + Math.random() * 20;
+                        p.x = Math.random() * w;
+                    }
 
-                    this.ctx.strokeStyle = `rgba(255, 255, 255, ${p.opacity})`;
+                    // 1. Gambar titik kepala angin (Cyan Glow)
+                    this.ctx.fillStyle = `rgba(14, 165, 233, ${Math.min(1, p.opacity + 0.35)})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    // 2. Gambar ekor garis aliran angin (Sky-Blue Streamline Kontras Tinggi)
+                    this.ctx.strokeStyle = `rgba(2, 132, 199, ${p.opacity * 0.9})`;
+                    this.ctx.lineWidth = 2.0;
                     this.ctx.beginPath();
                     this.ctx.moveTo(p.x, p.y);
-                    this.ctx.lineTo(p.x + p.length, p.y + p.length * 0.35);
+                    this.ctx.lineTo(p.x + p.length, p.y + p.length * p.tailAngle);
                     this.ctx.stroke();
                 }
 
@@ -826,6 +864,27 @@
         // Backward compatibility
         function toggleMobileSidebar() {
             toggleSidebar();
+        }
+
+        // Reset View to Panoramic Indonesia (Sabang s/d Merauke)
+        function resetIndonesiaView() {
+            if (map && typeof INDONESIA_BOUNDS !== 'undefined') {
+                map.fitBounds(INDONESIA_BOUNDS, { padding: [20, 20] });
+            }
+        }
+
+        // Handle Location Filter Change
+        function onLocationFilterChange() {
+            const locId = document.getElementById('filter-location').value;
+            if (locId) {
+                const target = locationsData.find(l => l.id === locId);
+                if (target) {
+                    map.flyTo([target.latitude, target.longitude], 10);
+                }
+            } else {
+                resetIndonesiaView();
+            }
+            loadHotspots();
         }
 
         // Locate User GPS Position

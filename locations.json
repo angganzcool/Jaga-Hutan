@@ -28,5 +28,45 @@
     "min_confidence": "low",
     "alert_telegram": true,
     "alert_whatsapp": true
+  },
+  {
+    "id": "loc_lorentz",
+    "name": "Taman Nasional Lorentz (Papua)",
+    "latitude": -4.7500,
+    "longitude": 137.8333,
+    "radius_km": 45.0,
+    "min_confidence": "nominal",
+    "alert_telegram": true,
+    "alert_whatsapp": true
+  },
+  {
+    "id": "loc_wasur",
+    "name": "Taman Nasional Wasur (Merauke, Papua Selatan)",
+    "latitude": -8.6333,
+    "longitude": 140.6667,
+    "radius_km": 35.0,
+    "min_confidence": "nominal",
+    "alert_telegram": true,
+    "alert_whatsapp": true
+  },
+  {
+    "id": "loc_manusela",
+    "name": "Taman Nasional Manusela (Maluku)",
+    "latitude": -3.2000,
+    "longitude": 129.5000,
+    "radius_km": 30.0,
+    "min_confidence": "nominal",
+    "alert_telegram": true,
+    "alert_whatsapp": true
+  },
+  {
+    "id": "loc_lore_lindu",
+    "name": "Taman Nasional Lore Lindu (Sulawesi Tengah)",
+    "latitude": -1.3333,
+    "longitude": 120.1667,
+    "radius_km": 30.0,
+    "min_confidence": "nominal",
+    "alert_telegram": true,
+    "alert_whatsapp": true
   }
 ]
