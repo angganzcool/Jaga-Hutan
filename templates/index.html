@@ -239,8 +239,16 @@
                 </div>
             </div>
 
-            <!-- Floating Quick Actions (Nusantara View, Locate Me & Fullscreen) -->
-            <div class="absolute top-4 right-14 z-[400] flex items-center gap-2 pointer-events-auto">
+            <!-- Floating Quick Actions (Basemap, Nusantara View, Locate Me & Fullscreen) -->
+            <div class="absolute top-4 right-4 z-[400] flex items-center gap-2 pointer-events-auto">
+                <!-- Basemap Switcher Dropdown (Menggantikan Leaflet control agar tidak tumpang tindih) -->
+                <div class="relative">
+                    <select id="select-basemap" onchange="changeBasemap(this.value)" class="bg-slate-950/90 hover:bg-slate-900 backdrop-blur-md border border-slate-800 text-slate-200 px-2.5 py-1.5 rounded-lg shadow-xl text-xs flex items-center transition cursor-pointer focus:outline-none focus:border-emerald-500">
+                        <option value="topo" selected>🌤️ Topografi</option>
+                        <option value="osm">🗺️ Jalan (OSM)</option>
+                        <option value="satellite">🛰️ Citra Satelit</option>
+                    </select>
+                </div>
                 <button onclick="resetIndonesiaView()" title="Pusatkan Seluruh Indonesia (Sabang - Merauke)" class="bg-slate-950/90 hover:bg-slate-900 backdrop-blur-md border border-slate-800 text-slate-200 px-2.5 py-1.5 rounded-lg shadow-xl text-xs flex items-center gap-1.5 transition">
                     <i data-lucide="map" class="w-3.5 h-3.5 text-amber-400"></i>
                     <span class="hidden sm:inline">Nusantara</span>
@@ -341,14 +349,24 @@
             layers: [esriTopo] // Default ke gaya Topografi Terang IQAir (bebas API key)
         }).fitBounds(INDONESIA_BOUNDS, { padding: [15, 15] }); // Tampilan mencakup seluruh Nusantara (Sabang s/d Merauke)
 
-        const baseMaps = {
-            "🌤️ Topografi Terang (Gaya IQAir)": esriTopo,
-            "🗺️ Peta Jalan Jelas (OpenStreetMap)": osmLayer,
-            "🛰️ Citra Satelit (ESRI World Imagery)": esriSatellite
-        };
-        L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
-        L.control.zoom({ position: 'topright' }).addTo(map);
+        // Pindahkan kontrol Zoom & Skala ke sudut kanan bawah agar sudut kanan atas bersih dan tidak tumpang tindih
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
         L.control.scale({ imperial: false, position: 'bottomright' }).addTo(map);
+
+        // Ganti gaya basemap dari dropdown atas
+        function changeBasemap(type) {
+            if (map.hasLayer(esriTopo)) map.removeLayer(esriTopo);
+            if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
+            if (map.hasLayer(esriSatellite)) map.removeLayer(esriSatellite);
+
+            if (type === 'topo') {
+                esriTopo.addTo(map);
+            } else if (type === 'osm') {
+                osmLayer.addTo(map);
+            } else if (type === 'satellite') {
+                esriSatellite.addTo(map);
+            }
+        }
 
         let locationsData = [];
         let locationCircles = [];
