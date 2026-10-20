@@ -63,6 +63,21 @@
                 -webkit-overflow-scrolling: touch;
             }
         }
+
+        /* Animasi Tombol Alert Menyala jika Berdekatan Titik Api */
+        @keyframes alert-pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 15px rgba(244, 63, 94, 0.8), 0 0 30px rgba(244, 63, 94, 0.4);
+                border-color: #f43f5e;
+            }
+            50% {
+                box-shadow: 0 0 6px rgba(244, 63, 94, 0.3);
+                border-color: #fb7185;
+            }
+        }
+        .animate-alert-glow {
+            animation: alert-pulse-glow 1.2s infinite ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans flex flex-col h-screen overflow-hidden">
@@ -86,8 +101,12 @@
             </div>
         </div>
 
-        <!-- Tombol Refresh Cepat di Header Mobile -->
+        <!-- Tombol Refresh Cepat & Alert di Header Mobile -->
         <div class="flex items-center gap-1.5 lg:hidden">
+            <button id="mobile-alert-btn" onclick="handleAlertBoxClick()" class="hidden px-2.5 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/50 text-xs font-bold items-center gap-1.5 shadow animate-alert-glow" title="Peringatan Titik Api Dekat Lokasi Anda">
+                <i data-lucide="bell-ring" class="w-3.5 h-3.5 text-rose-400 animate-bounce"></i>
+                <span id="mobile-alert-count">0</span>
+            </button>
             <button onclick="triggerManualFetch()" class="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 transition shrink-0" title="Cek Hotspot Sekarang">
                 <i data-lucide="refresh-cw" class="w-4 h-4" id="refresh-icon-mobile"></i>
             </button>
@@ -112,10 +131,10 @@
                     </div>
                 </div>
 
-                <div class="bg-slate-900/90 border border-slate-800 px-2.5 py-1 rounded-lg flex items-center gap-2 shrink-0 h-9" title="Peringatan dini terkirim">
-                    <i data-lucide="bell-ring" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+                <div id="header-alert-box" onclick="handleAlertBoxClick()" class="bg-slate-900/90 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded-lg flex items-center gap-2 shrink-0 h-9 transition cursor-pointer select-none" title="Status Peringatan Dini Dekat Lokasi Anda (Klik untuk pusatkan)">
+                    <i data-lucide="bell-ring" class="w-4 h-4 text-emerald-400 shrink-0" id="stat-alert-icon"></i>
                     <div class="text-left leading-tight whitespace-nowrap">
-                        <p class="text-[9px] text-slate-400 uppercase tracking-wider">Alert</p>
+                        <p class="text-[9px] text-slate-400 uppercase tracking-wider" id="stat-alert-label">Alert</p>
                         <p class="text-xs font-bold text-emerald-300" id="stat-alerts">0</p>
                     </div>
                 </div>
@@ -282,6 +301,25 @@
 
     <!-- Leaflet Map Container -->
         <main class="flex-1 relative h-full">
+            <!-- Floating Proximity Warning Toast Banner -->
+            <div id="proximity-alert-toast" class="hidden absolute top-14 sm:top-4 left-1/2 transform -translate-x-1/2 z-[450] max-w-md w-[92%] sm:w-auto bg-slate-950/95 backdrop-blur-md border-2 border-rose-500 text-white px-3.5 py-2.5 rounded-xl shadow-2xl flex items-center justify-between gap-3 pointer-events-auto animate-alert-glow">
+                <div class="flex items-center gap-2.5">
+                    <span class="p-1.5 bg-rose-600 rounded-lg animate-pulse shrink-0">
+                        <i data-lucide="bell-ring" class="w-4 h-4 text-white"></i>
+                    </span>
+                    <div class="text-left text-xs leading-tight">
+                        <p class="font-bold text-rose-300" id="toast-alert-title">🚨 PERINGATAN WASPADA KARHUTLA</p>
+                        <p class="text-[11px] text-slate-300" id="toast-alert-desc">Terdeteksi titik api dekat lokasi Anda.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button onclick="focusOnClosestHotspot()" class="bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg transition whitespace-nowrap shadow">
+                        Lihat Api ↗
+                    </button>
+                    <button onclick="dismissProximityToast()" class="text-slate-400 hover:text-white p-1 text-xs">✕</button>
+                </div>
+            </div>
+
             <!-- Floating Live Status Badge over Map -->
             <div id="floating-status" class="absolute top-3 left-3 sm:top-4 sm:left-4 z-[400] bg-slate-950/90 backdrop-blur-md border border-slate-800/90 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl shadow-2xl flex items-center gap-2 sm:gap-3 pointer-events-auto">
                 <span class="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0">
@@ -642,7 +680,9 @@
                 const data = await res.json();
                 document.getElementById('stat-total').innerText = data.total_hotspots;
                 document.getElementById('stat-today').innerText = data.today_hotspots;
-                document.getElementById('stat-alerts').innerText = data.total_alerts_sent;
+                if (!hasActiveProximityAlert) {
+                    document.getElementById('stat-alerts').innerText = data.total_alerts_sent;
+                }
             } catch (err) {
                 console.error("Gagal load stats", err);
             }
@@ -783,6 +823,12 @@
 
                 const res = await fetch(url);
                 const hotspots = await res.json();
+                window.currentHotspots = hotspots;
+
+                // Re-evaluasi proximity jika user telah melakukan deteksi lokasi sebelumnya
+                if (lastUserLocation && typeof handleProximityCheck === 'function') {
+                    handleProximityCheck(lastUserLocation.lat, lastUserLocation.lon, lastUserLocation.isSimulation, false);
+                }
 
                 // Clear previous markers & heat
                 layerGroupFire.clearLayers();
@@ -981,26 +1027,356 @@
             loadHotspots();
         }
 
+        // State & Engine Peringatan Dini Dekat Lokasi Pengguna
+        window.currentHotspots = [];
+        let proximityLayerGroup = L.layerGroup().addTo(map);
+        let userLocationMarker = null;
+        let lastUserLocation = null;
+        let closestHotspotData = null;
+        let hasActiveProximityAlert = false;
+
+        // Formula Haversine (Jarak Bumi dalam km)
+        function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Suara Peringatan Radar (Web Audio API - sintetis, tanpa file audio luar)
+        function playRadarAlertBeep() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.28);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } catch (e) {
+                console.warn("AudioContext init error", e);
+            }
+        }
+
+        // Evaluasi Kedekatan Pengguna terhadap Titik Api Satelit Real
+        async function handleProximityCheck(lat, lon, isSimulation = false, shouldFly = true) {
+            lastUserLocation = { lat, lon, isSimulation };
+
+            // Pastikan data hotspot tersedia
+            let spots = window.currentHotspots;
+            if (!spots || spots.length === 0) {
+                try {
+                    const res = await fetch('/api/hotspots?days=7');
+                    spots = await res.json();
+                    window.currentHotspots = spots;
+                } catch (e) {
+                    console.error("Gagal fetch hotspots", e);
+                }
+            }
+
+            let minDistance = Infinity;
+            let closestSpot = null;
+            const nearbyRadiusKm = 50; // Radius waspada 50 km
+            const dangerRadiusKm = 25; // Radius bahaya tinggi 25 km
+            const nearbySpots = [];
+
+            if (spots && spots.length > 0) {
+                spots.forEach(s => {
+                    const d = calculateDistanceKm(lat, lon, Number(s.latitude), Number(s.longitude));
+                    const spotWithDist = { ...s, distanceToUser: d };
+                    if (d < minDistance) {
+                        minDistance = d;
+                        closestSpot = spotWithDist;
+                    }
+                    if (d <= nearbyRadiusKm) {
+                        nearbySpots.push(spotWithDist);
+                    }
+                });
+                nearbySpots.sort((a, b) => a.distanceToUser - b.distanceToUser);
+            }
+
+            closestHotspotData = closestSpot;
+            proximityLayerGroup.clearLayers();
+
+            const headerBox = document.getElementById('header-alert-box');
+            const alertLabel = document.getElementById('stat-alert-label');
+            const alertCount = document.getElementById('stat-alerts');
+            const alertIcon = document.getElementById('stat-alert-icon');
+            const mobileBtn = document.getElementById('mobile-alert-btn');
+            const mobileCount = document.getElementById('mobile-alert-count');
+            const toast = document.getElementById('proximity-alert-toast');
+            const toastTitle = document.getElementById('toast-alert-title');
+            const toastDesc = document.getElementById('toast-alert-desc');
+
+            if (nearbySpots.length > 0) {
+                hasActiveProximityAlert = true;
+                playRadarAlertBeep();
+
+                // 1. UPDATE TOMBOL ALERT HEADER (MENYALA MERAH MEMBARA & PULSING)
+                if (headerBox) {
+                    headerBox.className = "bg-rose-950/90 border-2 border-rose-500 px-2.5 py-1 rounded-lg flex items-center gap-2 shrink-0 h-9 transition cursor-pointer animate-alert-glow shadow-[0_0_20px_rgba(244,63,94,0.7)]";
+                }
+                if (alertIcon) {
+                    alertIcon.className = "w-4 h-4 text-rose-400 shrink-0 animate-bounce";
+                }
+                if (alertLabel) {
+                    alertLabel.innerHTML = '<span class="text-rose-400 font-bold uppercase tracking-wider text-[9px]">⚠️ BAHAYA DEKAT</span>';
+                }
+                if (alertCount) {
+                    alertCount.className = "text-xs font-black text-rose-300";
+                    alertCount.innerText = `${nearbySpots.length} (${minDistance.toFixed(1)} km)`;
+                }
+
+                // Mobile Alert Button
+                if (mobileBtn && mobileCount) {
+                    mobileBtn.classList.remove('hidden');
+                    mobileBtn.classList.add('flex');
+                    mobileCount.innerText = `${nearbySpots.length} API (${minDistance.toFixed(0)} km)`;
+                }
+
+                // 2. GAMBAR LINGKARAN RADAR & KONEKTOR DI PETA
+                // Zona Bahaya Tinggi (25 km)
+                L.circle([lat, lon], {
+                    radius: dangerRadiusKm * 1000,
+                    color: '#ef4444',
+                    weight: 2,
+                    dashArray: '5, 5',
+                    fillColor: '#ef4444',
+                    fillOpacity: 0.18
+                }).addTo(proximityLayerGroup);
+
+                // Zona Waspada (50 km)
+                L.circle([lat, lon], {
+                    radius: nearbyRadiusKm * 1000,
+                    color: '#f97316',
+                    weight: 1.5,
+                    dashArray: '8, 8',
+                    fillColor: '#f97316',
+                    fillOpacity: 0.08
+                }).addTo(proximityLayerGroup);
+
+                // Garis Penghubung ke Titik Api Terdekat
+                if (closestSpot) {
+                    L.polyline([[lat, lon], [closestSpot.latitude, closestSpot.longitude]], {
+                        color: '#f43f5e',
+                        weight: 2.5,
+                        dashArray: '6, 8',
+                        opacity: 0.9
+                    }).addTo(proximityLayerGroup);
+                }
+
+                // Marker Posisi User dengan Efek Radar Berkedip
+                const userRadarIcon = L.divIcon({
+                    className: 'user-location-radar',
+                    html: `
+                        <div class="relative flex items-center justify-center">
+                            <span class="animate-ping absolute inline-flex h-9 w-9 rounded-full bg-rose-500 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-6 w-6 bg-rose-600 border-2 border-white shadow-2xl items-center justify-center text-white text-[11px] font-bold">📍</span>
+                        </div>
+                    `,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                });
+
+                userLocationMarker = L.marker([lat, lon], { icon: userRadarIcon }).addTo(proximityLayerGroup);
+
+                const popupHtml = `
+                    <div class="text-slate-900 font-sans p-1 text-xs min-w-[230px]">
+                        <div class="font-bold text-rose-600 text-sm flex items-center gap-1.5">
+                            <span>🚨 PERINGATAN WASPADA KARHUTLA</span>
+                        </div>
+                        <div class="mt-1 text-slate-700 leading-tight">
+                            ${isSimulation ? '<span class="inline-block bg-amber-500/20 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-bold mb-1">🧪 MODE SIMULASI</span><br>' : ''}
+                            Terdeteksi <b>${nearbySpots.length} titik kebakaran</b> dalam radius 50 km!
+                        </div>
+                        <div class="mt-1.5 p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-900 text-[11px] space-y-0.5">
+                            <div>🔥 <b>Titik Terdekat:</b> <span class="font-bold text-rose-700">${minDistance.toFixed(2)} km</span></div>
+                            <div>📍 <b>Wilayah:</b> ${escapeHtml(closestSpot?.location_name || 'Sekitar Lokasi Anda')}</div>
+                            <div>⚡ <b>Energi FRP:</b> ${closestSpot?.frp ? Number(closestSpot.frp).toFixed(1) + ' MW' : '0 MW'}</div>
+                        </div>
+                        <div class="mt-2 flex gap-1.5">
+                            <button onclick="focusOnClosestHotspot()" class="w-full bg-rose-600 hover:bg-rose-500 text-white py-1.5 rounded-lg text-center font-bold text-[11px] transition shadow">
+                                Fokuskan ke Titik Terdekat ↗
+                            </button>
+                        </div>
+                    </div>
+                `;
+                userLocationMarker.bindPopup(popupHtml).openPopup();
+
+                // 3. TAMPILKAN TOAST BANNER ATAS
+                if (toast && toastTitle && toastDesc) {
+                    toastTitle.innerText = `🚨 WASPADA: ${nearbySpots.length} Titik Api Terdekat!`;
+                    toastDesc.innerText = `Titik terdekat berjarak ${minDistance.toFixed(1)} km (${closestSpot?.location_name || 'Wilayah ini'}).`;
+                    toast.classList.remove('hidden');
+                }
+
+                // Fit Bounds peta mencakup posisi user dan titik terdekat
+                if (shouldFly && closestSpot) {
+                    const bounds = L.latLngBounds([[lat, lon], [closestSpot.latitude, closestSpot.longitude]]);
+                    map.fitBounds(bounds.pad(0.35));
+                }
+            } else {
+                hasActiveProximityAlert = false;
+
+                // 1. UPDATE TOMBOL ALERT HEADER (STATUS AMAN HIJAU)
+                if (headerBox) {
+                    headerBox.className = "bg-slate-900/90 border border-emerald-500/40 px-2.5 py-1 rounded-lg flex items-center gap-2 shrink-0 h-9 transition cursor-pointer";
+                }
+                if (alertIcon) {
+                    alertIcon.className = "w-4 h-4 text-emerald-400 shrink-0";
+                }
+                if (alertLabel) {
+                    alertLabel.innerHTML = '<span class="text-slate-400 uppercase tracking-wider text-[9px]">Status Lokasi</span>';
+                }
+                if (alertCount) {
+                    alertCount.className = "text-xs font-bold text-emerald-300";
+                    alertCount.innerText = "Aman (0 Api)";
+                }
+
+                if (mobileBtn) {
+                    mobileBtn.classList.add('hidden');
+                    mobileBtn.classList.remove('flex');
+                }
+                if (toast) {
+                    toast.classList.add('hidden');
+                }
+
+                // Lingkaran Aman (50 km hijau)
+                L.circle([lat, lon], {
+                    radius: nearbyRadiusKm * 1000,
+                    color: '#10b981',
+                    weight: 1.5,
+                    fillColor: '#10b981',
+                    fillOpacity: 0.05
+                }).addTo(proximityLayerGroup);
+
+                // Marker User Hijau Aman
+                const userSafeIcon = L.divIcon({
+                    className: 'user-location-safe',
+                    html: `
+                        <div class="relative flex items-center justify-center">
+                            <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-emerald-400 opacity-60"></span>
+                            <span class="relative inline-flex rounded-full h-6 w-6 bg-emerald-600 border-2 border-white shadow-xl items-center justify-center text-white text-[11px] font-bold">📍</span>
+                        </div>
+                    `,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                });
+
+                userLocationMarker = L.marker([lat, lon], { icon: userSafeIcon }).addTo(proximityLayerGroup);
+
+                const safePopupHtml = `
+                    <div class="text-slate-900 font-sans p-1 text-xs min-w-[210px]">
+                        <div class="font-bold text-emerald-600 text-sm flex items-center gap-1.5">
+                            <span>✅ Posisi Anda Aman</span>
+                        </div>
+                        <p class="mt-1 text-slate-700 text-[11px] leading-relaxed">
+                            Tidak terdeteksi titik kebakaran aktif dalam radius <b>50 km</b> dari posisi Anda.
+                        </p>
+                        <p class="text-slate-500 text-[10px] mt-1">
+                            Titik api terdekat berjarak <b>${minDistance < 9999 ? minDistance.toFixed(1) + ' km' : '-'}</b> ${closestSpot?.location_name ? `(${escapeHtml(closestSpot.location_name)})` : ''}.
+                        </p>
+                        <div class="mt-2 pt-1 border-t border-slate-200">
+                            <button onclick="simulateProximityAlert()" class="w-full bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 py-1.5 rounded-lg text-center font-bold text-[10px] transition shadow-sm">
+                                🧪 Uji Coba Simulasi Peringatan Dekat Api
+                            </button>
+                        </div>
+                    </div>
+                `;
+                userLocationMarker.bindPopup(safePopupHtml).openPopup();
+                if (shouldFly) {
+                    map.flyTo([lat, lon], 10);
+                }
+            }
+            lucide.createIcons();
+        }
+
         // Locate User GPS Position
         function locateUserPosition() {
             if (!navigator.geolocation) {
                 alert("Geolokasi tidak didukung oleh browser Anda.");
                 return;
             }
+
+            // Indikasi status loading pada tombol lokasi
+            const locateBtns = document.querySelectorAll('button[onclick*="locateUserPosition"]');
+            locateBtns.forEach(btn => btn.classList.add('opacity-50'));
+
             navigator.geolocation.getCurrentPosition(
                 pos => {
+                    locateBtns.forEach(btn => btn.classList.remove('opacity-50'));
                     const lat = pos.coords.latitude;
                     const lon = pos.coords.longitude;
-                    map.flyTo([lat, lon], 11);
-                    L.popup()
-                        .setLatLng([lat, lon])
-                        .setContent('<div class="text-xs font-semibold p-1 text-slate-800">📍 Posisi Anda Saat Ini</div>')
-                        .openOn(map);
+                    handleProximityCheck(lat, lon, false, true);
                 },
                 err => {
-                    alert("Tidak dapat mendeteksi lokasi: " + err.message);
-                }
+                    locateBtns.forEach(btn => btn.classList.remove('opacity-50'));
+                    let errMsg = "Tidak dapat mendeteksi lokasi GPS Anda.";
+                    if (err.code === 1) {
+                        errMsg = "Izin akses lokasi belum diizinkan oleh browser Anda.";
+                    }
+                    if (confirm(errMsg + "\n\nIngin jalankan simulasi dekat titik api untuk melihat tombol Alert menyala?")) {
+                        simulateProximityAlert();
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
             );
+        }
+
+        // Simulasi Berdekatan dengan Titik Api Nyata
+        function simulateProximityAlert() {
+            let spots = window.currentHotspots;
+            if (!spots || spots.length === 0) {
+                alert("Memuat data satelit titik api, silakan coba 2 detik lagi...");
+                loadHotspots().then(() => simulateProximityAlert());
+                return;
+            }
+            // Pilih hotspot pertama yang ada di database
+            const target = spots[0];
+            // Posisi simulasi user berada ~12 km dari titik api tersebut
+            const simLat = target.latitude - 0.09;
+            const simLon = target.longitude - 0.08;
+            handleProximityCheck(simLat, simLon, true, true);
+        }
+
+        // Fungsi Fokus ke Titik Api Terdekat
+        function focusOnClosestHotspot() {
+            if (closestHotspotData) {
+                map.flyTo([closestHotspotData.latitude, closestHotspotData.longitude], 12);
+            }
+        }
+
+        // Tutup Toast Peringatan
+        function dismissProximityToast() {
+            const toast = document.getElementById('proximity-alert-toast');
+            if (toast) toast.classList.add('hidden');
+        }
+
+        // Handler Klik Kotak Alert di Header
+        function handleAlertBoxClick() {
+            if (hasActiveProximityAlert && lastUserLocation) {
+                if (userLocationMarker) userLocationMarker.openPopup();
+                const toast = document.getElementById('proximity-alert-toast');
+                if (toast) toast.classList.remove('hidden');
+                if (closestHotspotData) {
+                    const bounds = L.latLngBounds([[lastUserLocation.lat, lastUserLocation.lon], [closestHotspotData.latitude, closestHotspotData.longitude]]);
+                    map.fitBounds(bounds.pad(0.35));
+                }
+            } else {
+                locateUserPosition();
+            }
         }
 
         // Fullscreen Toggle (Command Center Mode)
