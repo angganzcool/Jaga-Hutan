@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
+from geo_resolver import resolve_hotspot_location
 
 class Database:
     def __init__(self, db_path: str = "jaga_hutan.db"):
@@ -128,6 +129,12 @@ class Database:
         Menyimpan data hotspot jika belum ada.
         Mengembalikan True jika data baru ditambahkan, False jika sudah ada.
         """
+        # Otomatis resolusikan nama Kabupaten/Kota & Provinsi berdasarkan koordinat jika belum spesifik
+        loc_name = data.get("location_name")
+        if not loc_name or loc_name == "Wilayah Teritorial Indonesia":
+            loc_name = resolve_hotspot_location(data["latitude"], data["longitude"])
+            data["location_name"] = loc_name
+
         with self.get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -152,7 +159,7 @@ class Database:
                     data.get("frp", 0.0),
                     data.get("daynight", "D"),
                     data.get("location_id", ""),
-                    data.get("location_name", ""),
+                    loc_name,
                     data.get("distance_km", 0.0),
                 ))
                 inserted_hotspot = cursor.rowcount > 0
@@ -198,6 +205,11 @@ class Database:
         hotspot_rows = []
         loc_rows = []
         for d in hotspots:
+            loc_name = d.get("location_name")
+            if not loc_name or loc_name == "Wilayah Teritorial Indonesia":
+                loc_name = resolve_hotspot_location(d["latitude"], d["longitude"])
+                d["location_name"] = loc_name
+
             hotspot_rows.append((
                 d["hotspot_uid"],
                 d["latitude"],
@@ -212,7 +224,7 @@ class Database:
                 d.get("frp", 0.0),
                 d.get("daynight", "D"),
                 d.get("location_id", ""),
-                d.get("location_name", ""),
+                loc_name,
                 d.get("distance_km", 0.0),
             ))
             if d.get("location_id"):
@@ -313,9 +325,9 @@ class Database:
                     SELECT h.id, h.hotspot_uid, h.latitude, h.longitude, h.brightness,
                            h.scan_date, h.scan_time, h.satellite, h.instrument,
                            h.confidence_code, h.confidence_label, h.frp, h.daynight,
-                           COALESCE(hl.location_id, '') AS location_id,
-                           COALESCE(hl.location_name, 'Wilayah Teritorial Indonesia') AS location_name,
-                           hl.distance_km, h.created_at
+                           COALESCE(hl.location_id, h.location_id, '') AS location_id,
+                           COALESCE(NULLIF(hl.location_name, ''), NULLIF(h.location_name, ''), '') AS location_name,
+                           COALESCE(hl.distance_km, h.distance_km) AS distance_km, h.created_at
                     FROM hotspots h
                     LEFT JOIN hotspot_locations hl ON hl.hotspot_uid = h.hotspot_uid
                     WHERE h.scan_date >= ?
@@ -327,7 +339,12 @@ class Database:
 
             query += " ORDER BY h.scan_date DESC, h.scan_time DESC"
             cursor.execute(query, params)
-            return [dict(row) for row in cursor.fetchall()]
+            results = [dict(row) for row in cursor.fetchall()]
+            for r in results:
+                loc = r.get("location_name")
+                if not loc or loc == "Wilayah Teritorial Indonesia":
+                    r["location_name"] = resolve_hotspot_location(r["latitude"], r["longitude"])
+            return results
 
     def get_stats(self) -> Dict[str, Any]:
         """

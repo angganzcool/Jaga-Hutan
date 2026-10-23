@@ -228,7 +228,7 @@ class TestJagaHutan(unittest.TestCase):
         all_spots = self.db.get_recent_hotspots(days=7)
         self.assertTrue(any(s["hotspot_uid"] == "national_spot_papua" for s in all_spots))
         papua_spot = next(s for s in all_spots if s["hotspot_uid"] == "national_spot_papua")
-        self.assertEqual(papua_spot["location_name"], "Wilayah Teritorial Indonesia")
+        self.assertIn("Papua", papua_spot["location_name"])
 
         # Query posko spesifik (tidak boleh memunculkan titik nasional luar posko)
         posko_spots = self.db.get_recent_hotspots(days=7, location_id="loc_test")

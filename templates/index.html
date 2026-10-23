@@ -841,8 +841,8 @@
                             </div>
                             <hr class="my-1.5 border-slate-200">
                             <div class="space-y-0.5 text-slate-700">
-                                <div><b>Area:</b> ${escapeHtml(spot.location_name || 'Wilayah Teritorial Indonesia')}</div>
-                                <div><b>Jarak Posko:</b> ${spot.distance_km ? spot.distance_km.toFixed(2) + ' km' : '-'}</div>
+                                <div><b>Area:</b> <span class="font-semibold text-slate-900">${escapeHtml(spot.location_name || 'Wilayah Indonesia')}</span></div>
+                                ${spot.distance_km ? `<div><b>Jarak Posko:</b> ${spot.distance_km.toFixed(1)} km</div>` : ''}
                                 <div><b>Waktu:</b> ${spot.scan_date} ${spot.scan_time} UTC</div>
                                 <div><b>Confidence:</b> ${escapeHtml(spot.confidence_label)}</div>
                                 <div><b>Brightness:</b> ${spot.brightness ? spot.brightness.toFixed(1) + ' K' : '-'}</div>
